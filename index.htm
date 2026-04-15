@@ -4,7 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SnapReply</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<!-- Головні стилі сторінки: змінні теми, базова типографіка і адаптивні правила -->
 <style>
+/* Перелік глобальних CSS-змінних для теми, кольорів, відступів, плиток і анімацій */
 :root{
   --bg:#ffffff;
   --panel:#f9fafb;
@@ -25,10 +28,20 @@
   --btn-warning-bg:#EAB500;
   --btn-warning-text:#000000;
   --tile:220px;
-  --tile-min:160px;
-  --tile-max:360px;
-  --gap:12px;
+  --tile-min:150px;
+  --tile-max:340px;
+  --gap:10px;
+  --zoom-scale:1;
+  --motion-duration:.33s;
+  --motion-enter:.35s;
+  --motion-ease:cubic-bezier(.22,1,.36,1);
+  --ease-standard:cubic-bezier(.22,1,.36,1);
+  --ease-soft:cubic-bezier(.25,.8,.25,1);
+  --anim-fast:.22s;
+  --anim-medium:.32s;
+  --anim-slow:.45s;
 }
+/* Темна тема: змінні кольорів, які змінюють зовнішній вигляд для нічного режиму */
 body.dark{
   --bg:#212121;
   --panel:#171717;
@@ -51,57 +64,235 @@ body.dark{
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--text);transition:background-color .25s ease,color .25s ease}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background-color .22s ease,color .22s ease}
+button,input,textarea,select{font:inherit;transition:background-color .22s ease,color .22s ease,border-color .22s ease,box-shadow .22s ease}
+/* Кореневий макет додатку: бічна панель з навігацією та основна область контенту */
 .app{display:flex;height:100vh}
-.sidebar{width:260px;background:var(--panel-sidebar);border-right:1px solid var(--border);padding:14px;overflow:auto;display:flex;flex-direction:column;gap:12px}
-.main{flex:1;display:flex;flex-direction:column;background-position:center;background-repeat:no-repeat;background-size:cover;background-color:var(--bg)}
-.topbar{display:flex;gap:10px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--border);align-items:center;z-index:120}
+/* Бічна панель: навігація, категорії і керування шаблонами */
+.sidebar{width:250px;background:linear-gradient(180deg, var(--panel-sidebar) 0%, rgba(59,130,246,.05) 100%);border-right:1px solid var(--border);padding:8px 16px 12px;overflow:auto;display:flex;flex-direction:column;gap:12px;min-width:250px;transition:background-color .35s ease,color .35s ease,border-color .35s ease}
+/* Основна робоча область: вивід контенту, сітка карток і модальних вікон */
+.main{flex:1;display:flex;flex-direction:column;background-position:center center;background-repeat:no-repeat;background-size:cover;background-attachment:fixed;background-color:var(--bg);min-width:0;transition:background-color .35s ease,color .35s ease}
+.topbar{display:flex;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border);align-items:center;z-index:120;min-height:58px;transition:background-color .35s ease,color .35s ease,border-color .35s ease}
 
-/* Buttons */
+/* Кнопки: стиль станів, активні дії та кнопки скасування */
 .btn.active{background:var(--accent-soft);border-color:var(--accent)}
 .btn.cancel{background:#ef4444;color:#fff;border-color:#ef4444}
+#btnUndo,#btnRedo{display:none}
+.btn.history{background:var(--btn-primary-bg);color:var(--btn-primary-text);border-color:transparent;box-shadow:0 10px 22px rgba(0,0,0,.14);padding:10px 14px;min-width:96px;display:inline-flex;justify-content:center;align-items:center;gap:6px;}
+.btn.history:hover{filter:brightness(1.05);}
+.btn.history:disabled{opacity:.6;cursor:not-allowed;}
 
-/* Inputs */
-.search,.input,textarea,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)}
-.search{width:320px;min-width:120px}
+/* Поля вводу: пошук, форми і фокусний стан */
+.search,.input,textarea,select{padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--text);transition:border-color .22s ease,box-shadow .22s ease,background .22s ease}
+.search, .input{min-height:44px}
+.search{width:220px;min-width:140px}
+.search:focus,.input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(59,130,246,.08)}
+.category-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 
-/* Categories */
-.category-btn{display:block;width:100%;padding:10px;margin-bottom:6px;border:none;border-radius:12px;background:none;color:var(--text);text-align:left;cursor:pointer;border:1px solid transparent;transition:background-color .18s ease, transform .18s ease;}
-.category-btn:hover{transform:translateX(2px);background:var(--hover);border-color:var(--border)}
-.category-btn.active{background:var(--accent-soft);border-color:var(--accent)}
-.category-group{display:block}
-.category-child-wrap{overflow:hidden;max-height:0;transition:max-height .35s ease, opacity .35s ease, padding .35s ease;opacity:0;padding-top:0;}
-.category-group.open .category-child-wrap{max-height:420px;opacity:1;padding-top:6px;}
-.category-child-wrap .category-btn{padding-left:24px;}
-.topbar{display:flex;gap:10px;padding:16px 18px;background:var(--panel-sidebar);border-bottom:1px solid var(--border);align-items:center;z-index:120;min-height:66px;}
-.logo{height:44px;width:auto;object-fit:contain;}
+/* Категорії: список категорій, групи та розкриття підкатегорій */
+.category-btn{
+  display:flex;
+  width:100%;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  min-height:44px;
+  padding:10px 14px;
+  margin-bottom:6px;
+  border:none;
+  border-radius:14px;
+  background:rgba(255,255,255,0.03);
+  color:var(--text);
+  text-align:left;
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+  transition:background .25s ease,color .25s ease,transform .25s ease,box-shadow .25s ease;
+  white-space:normal;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+body.dark .category-btn{background:rgba(255,255,255,0.04);}
+.category-btn.group-toggle::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:14px;
+  box-shadow:0 0 18px rgba(65,84,163,.25);
+  opacity:0;
+  transition:opacity .25s ease;
+  pointer-events:none;
+  z-index:0;
+}
+.category-btn:hover{background:rgba(255,255,255,0.05);color:var(--text);border-color:transparent;}
+.category-btn.group-toggle:hover::after{opacity:.6;}
+.category-btn.active{background:rgba(65,84,163,0.22);color:var(--text);box-shadow:0 0 0 1px rgba(65,84,163,.16);}
+body.dark .category-btn.active{background:rgba(65,84,163,0.18);}
+.category-group{display:block;transform:translateZ(0);}
+.category-child-wrap{overflow:hidden;height:0;opacity:0;transition:height .45s cubic-bezier(.16,1,.3,1),opacity .25s;}
+.category-group.open .category-child-wrap{opacity:1;}
+.category-child{
+  will-change:transform,opacity;
+  transition:transform .55s cubic-bezier(.16,1,.3,1),opacity .45s ease;
+}
+.category-child .category-btn{
+  padding-left:22px;
+  font-size:14px;
+}
+.category-child-wrap .category-btn{
+  padding-left:24px;
+}
+.category-btn.group-toggle::before{
+  content:'';
+  position:absolute;
+  right:16px;
+  top:50%;
+  width:10px;
+  height:10px;
+  border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;
+  transform:translateY(-50%) rotate(45deg);
+  transition:transform .25s ease,opacity .25s ease;
+  opacity:.6;
+}
+.category-group.open > .category-btn.group-toggle::before{transform:translateY(-50%) rotate(135deg);opacity:1;}
+.sidebar-actions{display:flex;gap:12px;flex-wrap:nowrap;margin-bottom:12px;align-items:center;transition:opacity .28s ease,transform .28s ease,height .28s ease,width .28s ease,flex .28s ease,margin .28s ease,padding .28s ease;min-width:0;}
+.sidebar-actions.hidden{opacity:0;pointer-events:none;transform:translateX(-8px);height:0;overflow:hidden;flex:0 0 0;width:0;margin:0;padding:0;}
+.sidebar-head{display:flex;align-items:center;gap:10px;}
+.sidebar-head .search-wrap{flex:1 1 auto;min-width:0;min-height:44px;}
+.sidebar-head .sidebar-actions{margin-left:auto;height:44px;}
+.tab-btn{flex:0 0 44px;border-radius:14px;padding:0;width:44px;height:44px;font-size:0;background:rgba(0,0,0,.06);border:1px solid transparent;color:var(--text);display:inline-flex;align-items:center;justify-content:center;position:relative;line-height:1;transition:all .35s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 18px rgba(0,0,0,.12);}
+.tab-btn:hover{transform:translateY(-2px) scale(1.03);background:rgba(234,181,0,.16);color:#111827;}
+body.dark .tab-btn:hover{background:rgba(65,84,163,.24);color:#ffffff;}
+.tab-btn.active{background:var(--btn-warning-bg);color:var(--btn-warning-text);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 18px rgba(0,0,0,.18);border-color:transparent;}
+.tab-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;font-size:0;line-height:1;}
+.search-wrap{position:relative;width:44px;height:44px;display:flex;align-items:center;min-width:0;}
+.search-wrap.open{width:260px;}
+.sidebar .search-wrap.open{width:100%;}
+.search-btn{position:relative;flex-shrink:0;width:44px;height:44px;padding:0;border-radius:14px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#111827;background:rgba(0,0,0,.06);backdrop-filter:blur(10px);transition:all .35s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 18px rgba(0,0,0,.12);z-index:2;}
+#categorySearchWrap{transform:translateY(-3px);}
+#categorySearchWrap .search-btn:hover{transform:translateY(-2px) scale(1.03);}
+body.dark .search-btn{color:#f5f5f5;background:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 18px rgba(0,0,0,.18);}
+.search-btn:hover{transform:translateY(-5px) scale(1.03);background:rgba(234,181,0,.16);color:#111827;}
+body.dark .search-btn:hover{background:rgba(65,84,163,.24);color:#ffffff;}
+.search-btn.active{background:var(--btn-warning-bg);color:var(--btn-warning-text);}
+body.dark .search-btn.active{background:var(--btn-primary-bg);color:var(--btn-primary-text);}
+.search-input{position:absolute;left:0;width:100%;height:44px;padding:0 18px 0 56px;border-radius:18px;border:none;outline:none;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);color:var(--text);font-size:14px;opacity:0;pointer-events:none;transition:all .35s cubic-bezier(.77,0,.18,1);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 18px rgba(0,0,0,.12);}
+.search-input:focus{cursor:text;opacity:1;}
+.search-wrap.open .search-input{width:100%;opacity:1;pointer-events:auto;}
+.search-wrap.open .search-btn{transform:translateX(-4px) translateY(-3px);}
+.search-icon{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;transition:.35s ease;}
+.close-icon{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;}
+.category-search{width:100%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.06);transition:box-shadow .2s ease, border-color .2s ease;}
+.category-search:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(59,130,246,.12);}
+.logo{height:54px;width:auto;object-fit:contain;}
+  .sidebar-logo{display:flex;justify-content:center;align-items:center;padding:10px 0 8px;margin-bottom:8px;}
+  .sidebar-logo .logo{max-height:38px;max-width:100%;height:auto;width:auto;}
+  .sidebar-top{position:static;top:auto;z-index:auto;padding-bottom:0;background:transparent;backdrop-filter:none;}
+  body.dark .sidebar-top{background:transparent;}
+  .sidebar-head{display:flex;align-items:center;gap:10px;}
+  .sidebar-head .search-wrap{flex:1 1 auto;min-width:0;min-height:44px;}
+  .sidebar-head .sidebar-actions{margin-left:auto;height:44px;}
+/* Дизайн сітки і карток: адаптивна сітка, інтерактивні плитки та анімації появи */
+.grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile),1fr));gap:var(--gap);overflow:auto;position:relative}
+.grid.display-wide,.grid.display-text{grid-template-columns:1fr}
+.grid.display-wide .tile,
+.grid.display-text .tile{
+  width:100%;
+  max-width:calc(var(--tile) * var(--zoom-scale));
+  margin:0 auto;
+  transform-origin:top center;
+}
+.grid-empty-state{grid-column:1/-1;min-height:260px;display:flex;align-items:center;justify-content:center;padding:28px 20px;border:1px dashed rgba(100,116,139,.35);border-radius:18px;background:rgba(59,130,246,.05);color:var(--text);font-size:16px;line-height:1.5;text-align:center}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.tile{position:relative;background:var(--tile-bg);color:var(--tile-text);border:1px solid rgba(148,163,184,.18);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;min-height:160px;cursor:pointer;transform:translate3d(0,0,0);will-change:transform,opacity;transition:transform calc(var(--motion-duration) * var(--zoom-scale)) var(--motion-ease),opacity calc(var(--motion-duration) * var(--zoom-scale)) ease,box-shadow calc(var(--motion-duration) * var(--zoom-scale)) ease,border-color calc(var(--motion-duration) * var(--zoom-scale)) ease,background-color calc(var(--motion-duration) * var(--zoom-scale)) ease,color calc(var(--motion-duration) * var(--zoom-scale)) ease;opacity:0;animation:tileEnter calc(var(--motion-enter) * var(--zoom-scale)) var(--motion-ease) var(--tile-delay, 0ms) forwards;}
+.tile.placeholder{background:rgba(148,163,184,.08);border-style:dashed;opacity:.72;animation:none;transition:none;}
+.grid.display-wide .tile{min-height:140px;}
+.grid.display-wide .tile .contentArea{flex-direction:row;align-items:center;gap:16px;}
+.grid.display-wide .tile .thumb{position:static;width:140px;height:120px;border-radius:16px;}
+.grid.display-wide .tile .thumb img,
+.grid.display-wide .tile .thumb > div{max-width:100%;max-height:100%;width:auto;height:auto;}
+.grid.display-wide .tile .previewText{position:static;opacity:1;transform:none;padding:0;max-height:none;border-radius:0;background:transparent;color:var(--text);font-size:14px;}
+.grid.display-wide .tile .title{padding:10px 18px 6px 18px;text-align:left;}
+.grid.display-text .tile{min-height:auto;}
+.grid.display-text .tile .thumb{display:none;}
+.grid.display-text .tile .contentArea{padding:0;}
+.grid.display-text .tile .previewText{position:static;opacity:1;transform:none;padding:0 18px 12px;max-height:none;color:var(--text);font-size:14px;}
+.grid.display-text .tile .title{padding:12px 18px 8px 18px;text-align:left;white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;max-height:3.2em;line-height:1.4;}
+.grid.display-wide .tile:hover,
+.grid.display-text .tile:hover{transform:none;border-color:inherit;box-shadow:none;}
+.grid.display-wide .tile:hover .thumb img,
+.grid.display-wide .tile:hover .thumb > div{transform:none;opacity:1;}
+.grid.display-wide .tile:hover .title,
+.grid.display-text .tile:hover .title{opacity:1;transform:none;max-height:none;padding:inherit;margin-top:auto;}
+.grid.display-wide .tile:hover .previewText,
+.grid.display-text .tile:hover .previewText{opacity:1;transform:none;background:transparent;}
+.tile.hide{opacity:0;transform:scale(0.92);pointer-events:none;}
+.tile:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 18px 42px rgba(0,0,0,.12)}
+.tile.selected{outline:none;box-shadow:0 0 0 2px var(--accent);background:var(--accent-soft);transform:none;z-index:1;}
 
-/* Grid & tiles */
-.grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile),1fr));gap:var(--gap);overflow:auto}
-.tile{position:relative;background:var(--tile-bg);color:var(--tile-text);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;min-height:160px;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-.tile:hover{transform:translateY(-3px);border-color:var(--accent)}
-.tile.selected{outline:2px solid var(--accent);background:var(--accent-soft);transform:translateY(-4px)}
+body[data-motion='low']{--motion-duration:.52s;--motion-enter:.6s;--motion-ease:var(--ease-soft);}
+body[data-motion='normal']{--motion-duration:.33s;--motion-enter:.38s;--motion-ease:var(--ease-standard);}
+body[data-motion='fast']{--motion-duration:.22s;--motion-enter:.25s;--motion-ease:cubic-bezier(.16,1,.3,1);}
+body[data-motion='reduced']{--motion-duration:0s;--motion-enter:0s;--motion-ease:linear;}
+body[data-motion='reduced'] .tile{transition:none;animation:none;opacity:1;}
 
-/* Content area */
+body[data-motion='low'] .category-child-wrap{transition:max-height .22s ease,padding .18s ease;}
+body[data-motion='reduced'] .category-child-wrap{transition:none;}
+body[data-motion='reduced'] .tile:hover{transform:none;box-shadow:none;}
+body[data-motion='reduced'] .thumb,
+body[data-motion='reduced'] .search-wrap,
+body[data-motion='reduced'] .topbar,
+body[data-motion='reduced'] .modal,
+body[data-motion='reduced'] .category-btn,
+body[data-motion='reduced'] .tab-btn,
+body[data-motion='reduced'] .previewText,
+body[data-motion='reduced'] .title,
+body[data-motion='reduced'] .thumb img,
+body[data-motion='reduced'] .thumb > div{transition:none !important;}
+body[data-motion='reduced'] .search-btn{backdrop-filter:none;}
+body[data-motion='reduced'] .modalWrap{background:rgba(15,23,42,.18);}
+body[data-motion='low'] .tile:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,0,0,.08);}
+
+@keyframes tileEnter{0%{opacity:0;transform:translateY(12px) scale(0.96);}100%{opacity:1;transform:translateY(0) scale(1);}}
+
+/* Область контенту: вміщує медіа-прев’ю та попередній перегляд вмісту шаблону */
 .contentArea{flex:1;position:relative;display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden}
-.thumb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;transition:opacity .22s ease,transform .22s ease}
-.thumb img{width:100%;height:100%;object-fit:contain;background:transparent}
-.previewText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:14px;color:var(--muted);font-size:13px;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease}
-.tile:hover .thumb{opacity:0;transform:translateY(-6px)}
-.tile:hover .previewText{opacity:1;transform:translateY(0)}
+.thumb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden;border-radius:18px;background:transparent;transition:transform .22s ease,filter .22s ease}
+.thumb::before{content:'';position:absolute;inset:0;background:transparent;pointer-events:none;opacity:0;transition:opacity .28s ease}
+.thumb img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transition:transform .28s ease,filter .28s ease,opacity .28s ease;border-radius:12px}
+.thumb > div{display:flex;align-items:center;justify-content:center;width:100%;height:100%;transition:transform .28s ease,filter .28s ease,opacity .28s ease;border-radius:12px}
+.thumb > *{transition:transform .22s ease,opacity .22s ease;}
+.tile:hover .thumb img{transform:scale(0.96);filter:brightness(.92);opacity:0}
+.tile:hover .thumb > div{transform:scale(0.96);opacity:0}
+.previewText{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:flex-start;padding:14px;color:#fff;font-size:13px;line-height:1.6;text-align:left;opacity:0;transform:translateY(12px);transition:opacity .24s ease,transform .24s ease,background .24s ease;white-space:pre-wrap;overflow:hidden;word-break:break-word;overflow-wrap:anywhere;box-sizing:border-box;width:100%;background:transparent;font-family:inherit;font-weight:500;letter-spacing:0.01em;}
+.title{padding:10px 12px;text-align:center;font-weight:600;margin-top:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-height:54px;transition:opacity .24s ease,transform .24s ease,max-height .24s ease,padding .24s ease,margin-top .24s ease;}
+.tile:hover .title{opacity:0;transform:translateY(6px);max-height:0;padding-top:0;padding-bottom:0;margin-top:0;}
+.tile:hover .thumb{transform:scale(1.005)}
+.tile:hover .thumb::before{opacity:1;background:rgba(0,0,0,0.32)}
+.tile:hover .previewText{opacity:1;transform:translateY(0);background:rgba(0,0,0,0.4)}
+body.dark .tile{background:var(--tile-bg);border:1px solid rgba(255,255,255,.08);}
+body.dark .previewText{color:#f5f5f5;background:rgba(0,0,0,0.3)}
 
 /* Title anchored to bottom, centered horizontally, equal side padding */
 .title{padding:10px 12px;text-align:center;font-weight:600;margin-top:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* Modal */
-.modalWrap{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;visibility:hidden;display:flex;align-items:center;justify-content:center;z-index:300;transition:opacity .18s ease,visibility .18s ease}
+/* Модальні вікна дизайну: затемнений фон, плавне відкривання та адаптивний центр екрану */
+.modalWrap{position:fixed;inset:0;background:rgba(15,23,42,.35);backdrop-filter:blur(4px);opacity:0;visibility:hidden;display:flex;align-items:center;justify-content:center;z-index:300;transition:opacity .22s ease,visibility .22s ease}
 .modalWrap.show{opacity:1;visibility:visible}
-.modal{width:min(760px,96vw);background:var(--card);padding:20px;border-radius:14px;border:1px solid var(--border);max-height:90vh;overflow:auto;transform:translateY(10px) scale(.98);opacity:0;position:relative;transition:all .18s ease}
+.modal{width:min(520px,92vw);max-width:520px;background:var(--card);padding:18px;border-radius:18px;border:1px solid var(--border);max-height:90vh;overflow:auto;transform:translateY(12px) scale(.98);opacity:0;position:relative;box-shadow:0 22px 46px rgba(0,0,0,.12);transition:transform .28s cubic-bezier(.22,.61,.36,1),opacity .24s ease,box-shadow .24s ease,background-color .35s ease,color .35s ease,border-color .35s ease}
+body.dark .modal{background:var(--card);border-color:rgba(255,255,255,.08)}
 .modalWrap.show .modal{transform:translateY(0) scale(1);opacity:1}
-.modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
-.modal-header h3{margin:0;font-size:20px}
-.close-btn{min-width:auto;padding:10px 12px;font-size:16px;border-radius:10px;background:var(--bg);border:1px solid var(--border);color:var(--text)}
-.modal-note{margin:6px 0 0;color:var(--muted);font-size:14px;line-height:1.5;opacity:.78}
+.modal{background:var(--card);border:1px solid var(--border);backdrop-filter:none;}
+body.dark .modal{background:var(--card);border-color:rgba(255,255,255,.08);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.modal-header h2,
+.modal-header h3,
+.modal h3{margin:0}
+.note,
+.modal-note{margin:0;padding:12px 14px;border-radius:14px;background:rgba(59,130,246,.08);color:var(--muted);font-size:14px;line-height:1.6;}
+body.dark .note,
+body.dark .modal-note{background:rgba(234,181,0,.12);color:var(--text)}
 .import-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
 .import-panel{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
 .import-panel .panel-title{margin:0;font-size:13px;font-weight:700;color:var(--text)}
@@ -111,6 +302,24 @@ body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(
 .export-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--card);margin-bottom:14px}
 .export-panel .hint{margin:0;color:var(--muted);font-size:13px}
 @media(max-width:760px){.modal{width:94vw}.import-grid{grid-template-columns:1fr}}
+@media(max-width:900px){
+  .topbar{flex-wrap:wrap;align-items:flex-start;gap:8px;}
+  .topbar > div, .topbar > button{flex:1 1 auto;min-width:0;}
+  .topbar > div{width:100%;}
+  .topbar .search-wrap{width:100%;}
+  .topbar .btn{min-width:0;}
+  .sidebar{width:100%;min-width:0;max-height:none;}
+  .app{flex-direction:column;}
+}
+.modal-body{display:flex;flex-direction:column;gap:14px}
+.field-row{display:flex;gap:12px;flex-wrap:wrap}
+.field-row--compact{align-items:center}
+.field-row .input{flex:1;min-width:0}
+.field-checkbox{display:inline-flex;align-items:center;gap:8px;color:var(--text);font-size:14px}
+.field-checkbox input{width:16px;height:16px}
+.modal-actions{display:flex;gap:12px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.modal-actions .btn{min-width:118px;height:44px;padding:0 18px}
+.small{font-size:13px;color:var(--muted)}
 .previewTable{width:100%;border-collapse:collapse;margin-top:8px}
 .previewTable th, .previewTable td{border:1px solid var(--border);padding:6px;font-size:13px;text-align:left;background:var(--card);color:var(--text)}
 .mappingRow{display:flex;gap:8px;align-items:center;margin-top:8px}
@@ -123,7 +332,11 @@ body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(
 .undoBar{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;background:rgba(0,0,0,0.85);color:#fff;padding:10px 14px;border-radius:8px;display:flex;gap:8px;align-items:center;z-index:9999}
 
 /* small visual feedback after copy */
-.tile.just-copied{box-shadow:0 6px 18px rgba(59,130,246,0.12);outline:2px solid rgba(59,130,246,0.18)}
+.tile.just-copied{animation:tile-copy .32s ease;box-shadow:0 18px 40px rgba(59,130,246,0.2);outline:2px solid rgba(59,130,246,0.32)}
+.tile.dragging{transform:scale(1.02);box-shadow:0 24px 58px rgba(0,0,0,.22)}
+.sortable-chosen{transform:scale(1.02);box-shadow:0 18px 44px rgba(0,0,0,.18)}
+.sortable-ghost{opacity:.45;filter:blur(.4px)}
+@keyframes tile-copy{0%{transform:translateY(0)}25%{transform:translateY(-3px) scale(1.01)}100%{transform:translateY(0)}}
 
 /* Hotkeys HUD */
 #hotkeysHUD{
@@ -143,69 +356,290 @@ body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(
 }
 #hotkeysHUD.show{ opacity:1; transform:translateY(0); }
 #hotkeysHUD .keys{ font-weight:700; letter-spacing:0.6px; }
-.btn{
+.btn{  
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding:8px 12px;
-  border-radius:10px;
+  padding:0 14px;  
+  min-height:44px;
+  height:44px;
+  border-radius:12px;
   border:1px solid var(--btn-border);
-  background:var(--card);
+  background:var(--panel);
   color:var(--text);
   cursor:pointer;
   user-select:none;
-  transition:background-color .18s ease,color .18s ease,transform .18s ease,opacity .18s ease;
+  transition:transform .22s ease,box-shadow .22s ease,background-color .22s ease,color .22s ease,opacity .22s ease;
+  box-shadow:0 8px 14px rgba(0,0,0,.04);
+  font-weight:600;
 }
 
 .btn:hover{
   transform: translateY(-1px);
-  opacity: 0.93;
+  opacity: 1;
+  box-shadow:0 14px 28px rgba(0,0,0,.08);
+}
+
+.btn svg,
+button svg{pointer-events:none;}
+
+.btn.primary{
+  background:var(--btn-primary-bg);
+  color:var(--btn-primary-text);
+  border-color:transparent;
+  box-shadow:0 10px 22px rgba(0,0,0,.14);
+}
+
+.btn.primary:hover{
+  filter:brightness(1.05);
+}
+
+.btn.warning{
+  background:var(--btn-warning-bg);
+  color:var(--btn-warning-text);
+  border-color:transparent;
+  box-shadow:0 10px 22px rgba(0,0,0,.14);
+}
+
+.btn.warning.active{
+  box-shadow:0 12px 26px rgba(0,0,0,.18);
+  filter:brightness(1.05);
+}
+
+.btn.hotkey-btn{
+  position:relative;
+  padding:14px 26px;
+  border-radius:14px;
+  border:none;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:.3px;
+  color:#cfd3ff;
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(10px);
+  transition:all .3s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 6px 16px rgba(0,0,0,.5);
+}
+
+.btn.hotkey-btn:hover{
+  transform:translateY(-2px);
+  background:#4154A3;
+  color:#fff;
+}
+
+body.light .btn.hotkey-btn{
+  background:rgba(228,228,229,.95);
+  color:var(--text);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.7),
+    0 6px 16px rgba(0,0,0,.08);
+}
+
+.btn.hotkey-btn.active{
+  background:#EAB500;
+  color:#000;
+  box-shadow:
+    0 0 0 2px rgba(234,181,0,.35),
+    0 8px 22px rgba(234,181,0,.35);
+  animation:pulse 2s infinite;
+}
+
+.btn.hotkey-btn::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:14px;
+  opacity:0;
+  transition:.3s;
+  box-shadow:0 0 20px rgba(65,84,163,.5);
+}
+
+.btn.hotkey-btn:hover::after{
+  opacity:1;
+}
+
+.btn.hotkey-btn .dot{
+  position:absolute;
+  top:6px;
+  right:6px;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#555;
+  transition:.3s;
+}
+
+.btn.hotkey-btn.active .dot{
+  background:#00ff88;
+  box-shadow:0 0 8px #00ff88;
+}
+
+@keyframes pulse{
+  0%{
+    box-shadow:
+      0 0 0 0 rgba(234,181,0,.5),
+      0 8px 22px rgba(234,181,0,.35);
+  }
+  70%{
+    box-shadow:
+      0 0 0 10px rgba(234,181,0,0),
+      0 8px 22px rgba(234,181,0,.35);
+  }
+  100%{
+    box-shadow:
+      0 0 0 0 rgba(234,181,0,0),
+      0 8px 22px rgba(234,181,0,.35);
+  }
+}
+
+.btn.warning:hover{
+  filter:brightness(1.05);
+}
+
+.btn.active{
+  background:var(--btn-primary-bg);
+  color:var(--btn-primary-text);
+  border-color:transparent;
+  box-shadow:0 12px 24px rgba(0,0,0,.18);
+}
+
+.btn.cancel{
+  background:#ef4444;
+  color:#fff;
+  border-color:transparent;
+  box-shadow:0 10px 20px rgba(239,68,68,.18);
+}
+
+.btn.cancel:hover{
+  filter:brightness(1.05);
+}
+
+.btn.close-btn{
+  width:44px;
+  height:44px;
+  padding:0;
+  border-radius:12px;
+  background:rgba(255,255,255,.08);
+  color:var(--text);
+  border-color:rgba(255,255,255,.15);
+}
+
+.btn.close-btn:hover{
+  background:rgba(255,255,255,.14);
+}
+
+.btn.full{
+  width:100%;
+  justify-content:center;
 }
 
 .btn.theme-toggle{
-  width:52px;
-  min-width:52px;
-  height:32px;
+  width:44px;
+  min-width:44px;
+  height:44px;
   padding:0;
-  border-radius:999px;
+  border-radius:14px;
   position:relative;
-  background:transparent;
-  border-color:var(--border);
-}
-.btn.theme-toggle::before{
-  content:'';
-  position:absolute;
-  top:4px;
-  bottom:4px;
-  left:4px;
-  right:4px;
-  border-radius:999px;
-  background:var(--theme-toggle-bg);
-  transition:background .2s ease;
-}
-.btn.theme-toggle::after{
-  content:'☀︎';
-  position:absolute;
-  width:20px;
-  height:20px;
-  top:50%;
-  left:6px;
-  transform:translateY(-50%);
+  background:rgba(255,255,255,0.06);
+  border:none;
+  cursor:pointer;
   display:flex;
   align-items:center;
   justify-content:center;
-  border-radius:50%;
-  background:var(--card);
-  color:var(--text);
-  font-size:12px;
-  transition:left .2s ease, background .2s ease, color .2s ease;
+  color:#aaa;
+  backdrop-filter:blur(12px);
+  transition:background .18s ease,color .18s ease,transform .18s ease,box-shadow .18s ease;
+  will-change:transform,background-color,color,box-shadow;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.1),
+    0 8px 20px rgba(0,0,0,.5);
 }
-body.dark .btn.theme-toggle::after{
-  content:'🌙';
-  left:calc(100% - 26px);
+
+.theme-btn:hover,
+.btn.theme-toggle:hover{
+  transform:translateY(-1px) scale(1.02);
+  background:#4154A3;
+  color:#fff;
 }
-body.dark .btn.theme-toggle::before{
-  background:rgba(255,255,255,0.14);
+
+body.light .btn.theme-toggle:hover{
+  background:#EAB500;
+  color:#000;
+}
+
+body:not(.light) .btn.theme-toggle.active{
+  background:#EAB500;
+  color:#000;
+  box-shadow:
+    0 0 0 2px rgba(234,181,0,.4),
+    0 10px 26px rgba(234,181,0,.35);
+}
+
+body.light .btn.theme-toggle.active{
+  background:#4154A3;
+  color:#fff;
+  box-shadow:
+    0 0 0 2px rgba(65,84,163,.4),
+    0 10px 26px rgba(65,84,163,.35);
+}
+
+.btn.theme-toggle::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:12px;
+  opacity:0;
+  transition:.3s;
+  box-shadow:0 0 22px rgba(65,84,163,.6);
+}
+
+.btn.theme-toggle:hover::after{
+  opacity:1;
+}
+
+.btn.theme-toggle .theme-icon{
+  width:22px;
+  height:22px;
+  stroke:currentColor;
+  stroke-width:2;
+  fill:none;
+  transition:transform .22s ease, opacity .22s ease;
+  transform-origin:center center;
+  will-change:transform, opacity;
+  transform-box:fill-box;
+  -webkit-transform-box:fill-box;
+}
+
+.btn.theme-toggle .theme-icon .sun,
+.btn.theme-toggle .theme-icon .moon{
+  transition:transform .22s ease, opacity .22s ease;
+  transform-origin:center center;
+  transform-box:fill-box;
+  -webkit-transform-box:fill-box;
+  will-change:transform, opacity;
+}
+
+.btn.theme-toggle .theme-icon .sun{
+  opacity:0;
+  transform:scale(0.6);
+}
+
+.btn.theme-toggle .theme-icon .moon{
+  opacity:1;
+  transform:scale(1);
+}
+
+body.light .btn.theme-toggle .theme-icon .sun{
+  opacity:1;
+  transform:scale(1);
+}
+
+body.light .btn.theme-toggle .theme-icon .moon{
+  opacity:0;
+  transform:scale(0.6);
 }
 
 .btn.icon-btn{
@@ -237,25 +671,74 @@ body.dark .btn.theme-toggle::before{
   transform:translate(-50%, -50%);
 }
 
-.btn.primary{
+.gear-btn{
+  position:relative;
+  width:44px;
+  min-width:44px;
+  height:44px;
+  padding:0;
+  border-radius:14px;
+  border:none;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--text);
+  background:rgba(255,255,255,0.08);
+  backdrop-filter:blur(10px);
+  transition:all .25s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 6px 14px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+
+body.dark .gear-btn{
+  background:rgba(255,255,255,0.06);
+  color:#ececec;
+}
+
+.gear-icon{
+  width:24px;
+  height:24px;
+  fill:currentColor;
+  transition:all .35s ease;
+}
+
+.gear-btn:hover{
+  transform:translateY(-2px) scale(1.05);
   background:var(--btn-primary-bg);
   color:var(--btn-primary-text);
-  border-color:transparent;
 }
 
-.btn.primary:hover{
-  filter:brightness(1.05);
+.gear-btn:hover .gear-icon{
+  transform:rotate(90deg);
 }
 
-.btn.warning{
+.gear-btn:active{
+  transform:scale(.94);
+}
+
+.gear-btn.active{
   background:var(--btn-warning-bg);
   color:var(--btn-warning-text);
-  border-color:transparent;
+  box-shadow: 0 0 0 2px rgba(234,181,0,.4), 0 8px 20px rgba(234,181,0,.3);
 }
 
-.btn.warning:hover{
-  filter:brightness(1.05);
+.gear-btn::after,
+.search-btn::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:16px;
+  opacity:0;
+  transition:.3s;
+  box-shadow:0 0 18px rgba(65,84,163,.35);
 }
+
+.gear-btn:hover::after,
+.search-btn:hover::after{
+  opacity:1;
+}
+
 ::-webkit-scrollbar{
   width:10px;
   height:10px;
@@ -288,8 +771,8 @@ body.dark .btn.theme-toggle::before{
   user-select:none;
   pointer-events:none;
 }
-.sidebar-logo{display:flex;justify-content:center;align-items:center;padding:18px 0 16px;margin-bottom:14px}
-.sidebar-logo .logo{max-height:52px;max-width:100%;height:auto;width:auto;}
+.sidebar-logo{display:flex;justify-content:center;align-items:center;padding:10px 0 12px;margin-bottom:12px}
+.sidebar-logo .logo{max-height:38px;max-width:100%;height:auto;width:auto;}
 .tile.pinned{border-color:var(--btn-warning-bg);box-shadow:0 0 0 1px rgba(234,181,0,0.35);}
 .tile-badge{position:absolute;top:10px;right:10px;padding:4px 8px;font-size:11px;font-weight:700;color:var(--btn-warning-text);background:var(--btn-warning-bg);border-radius:999px;display:flex;align-items:center;gap:4px;}
 .tile-badge + .tile-badge{top:34px;}
@@ -307,127 +790,239 @@ body.dark .btn.theme-toggle::before{
 
 
 @media(max-width:900px){ .search{width:160px} .sidebar{width:200px} .modal{width:94vw} }
-.settings-panel{display:flex;flex-direction:column;gap:16px}
+.modal-body{display:flex;flex-direction:column;gap:14px}
+.field-row{display:flex;gap:12px;flex-wrap:wrap}
+.field-row--compact{align-items:center}
+.field-row .input{flex:1;min-width:0}
+.field-checkbox{display:inline-flex;align-items:center;gap:8px;color:var(--text);font-size:14px}
+.field-checkbox input{width:16px;height:16px}
+.modal-actions{display:flex;gap:12px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.modal-actions .btn{min-width:118px;height:44px;padding:0 18px}
+.small{font-size:13px;color:var(--muted)}
 .settings-group{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--border)}
 .settings-group label{font-weight:700;color:var(--text);}
 .settings-group .hint{font-size:13px;color:var(--muted);}
 .settings-slider{width:100%;}
 .settings-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .settings-row span{font-size:14px;color:var(--text);}
+.account-panel{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--card)}
+.account-status{display:flex;flex-direction:column;gap:4px}
+.account-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.account-actions .btn{min-width:140px}
 </style>
 </head>
 <body>
+<!-- Основна структура додатку: бічна панель з категоріями та головна робоча область -->
 <div class="app">
   <aside class="sidebar">
-    <div class="sidebar-logo">
-      <img id="logo" src="light_theme.png" class="logo" draggable="false" ondragstart="return false;" oncontextmenu="return false;">
+    <!-- Верхня частина бічної панелі: логотип, пошук категорій та кнопки фільтрації -->
+    <div class="sidebar-top">
+      <div class="sidebar-logo">
+        <img id="logo" src="light_theme.png" class="logo" draggable="false" ondragstart="return false;" oncontextmenu="return false;">
+      </div>
+      <div class="sidebar-head">
+        <div class="search-wrap" id="categorySearchWrap" role="search">
+          <button id="btnCatSearch" type="button" class="search-btn" aria-label="Пошук категорій" aria-expanded="false" aria-controls="categoryList"><svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg></button>
+          <input id="categorySearch" type="search" autocomplete="off" class="search-input category-search" placeholder="Пошук категорій..." aria-label="Пошук категорій" aria-controls="categoryList" />
+        </div>
+        <div class="sidebar-actions">
+          <button id="btnCatAll" class="btn tab-btn active" title="Усі">
+            <svg class="tab-icon" viewBox="0 0 100 100" aria-hidden="true">
+              <rect x="8" y="8" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="15" y="15" width="24" height="24" rx="3" fill="#fff" />
+              <rect x="54" y="8" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="61" y="15" width="24" height="24" rx="3" fill="#fff" />
+              <rect x="8" y="54" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="15" y="61" width="24" height="24" rx="3" fill="#fff" />
+              <rect x="54" y="54" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="61" y="61" width="24" height="24" rx="3" fill="#fff" />
+            </svg>
+          </button>
+          <button id="btnCatFav" class="btn tab-btn" title="Обране">
+            <svg class="tab-icon" viewBox="0 0 100 100" aria-hidden="true">
+              <polygon points="50,2 63,38 100,38 69,59 82,95 50,75 18,95 31,59 0,38 37,38" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <!-- theme toggle moved to topbar -->
-    </div>
-    <div id="categoryList" style="display:flex;flex-direction:column;gap:6px;margin-top:12px"></div>
+    <!-- Список категорій: групові кнопки і розділи для вибору шаблонів -->
+    <div id="categoryList" class="category-list"></div>
   </aside>
 
   <main class="main" id="mainArea">
+    <!-- Основний контент: панель керування та робоча область шаблонів -->
     <div class="topbar">
-      <input id="search" class="search" placeholder="Пошук по всім категоріям..." />
-      <button id="clearSearch" class="btn">✕</button>
-      <button id="btnSettings" type="button" class="btn icon-btn" aria-label="Налаштування">⚙️</button>
-      <div style="display:flex;gap:8px;margin-left:8px">
-        <button id="btnAdd" class="btn">Додати</button>
-        <button id="btnEditMode" class="btn">Редагування</button>
-        <button id="btnSelectAll" class="btn" style="display:none">Виділити все</button>
-        <button id="btnDeleteSelected" class="btn" style="display:none">Видалити</button>
-        <button id="btnEditSelected" class="btn" style="display:none">Редагувати</button>
-        <button id="btnCancelSelection" class="btn cancel" style="display:none">Скасувати</button>
+      <div class="search-wrap" id="mainSearchWrap" role="search">
+        <button id="btnSearchToggle" type="button" class="search-btn" aria-label="Пошук шаблонів" aria-expanded="false" aria-controls="grid">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+        </button>
+        <input id="search" type="search" autocomplete="off" class="search search-input" placeholder="Пошук шаблонів..." aria-label="Пошук шаблонів" aria-controls="grid" />
+      </div>
+      <button id="clearSearch" class="btn close-btn" aria-label="Очистити пошук"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
+      <button id="btnSettings" type="button" class="btn gear-btn" aria-label="Налаштування">
+        <svg viewBox="0 0 24 24" class="gear-icon" aria-hidden="true">
+          <path d="M12 8.2 A3.8 3.8 0 1 1 12 15.8 A3.8 3.8 0 1 1 12 8.2 M12 2 L13.2 2 L14 4.2 L16.2 5 L18.3 3.9 L20.1 5.7 L19 7.8 L19.8 10 L22 10.8 L22 13.2 L19.8 14 L19 16.2 L20.1 18.3 L18.3 20.1 L16.2 19 L14 19.8 L13.2 22 L10.8 22 L10 19.8 L7.8 19 L5.7 20.1 L3.9 18.3 L5 16.2 L4.2 14 L2 13.2 L2 10.8 L4.2 10 L5 7.8 L3.9 5.7 L5.7 3.9 L7.8 5 L10 4.2 Z" fill="currentColor" fill-rule="evenodd"/>
+        </svg>
+      </button>
+      <div style="display:flex;gap:8px;margin-left:8px;flex-wrap:wrap;align-items:center">
+        <button id="btnAdd" class="btn primary">Додати</button>
+        <button id="btnEditMode" class="btn primary">Редагування</button>
+        <button id="btnSelectAll" class="btn primary" style="display:none">Виділити все</button>
+        <button id="btnDeleteSelected" class="btn warning" style="display:none">Видалити</button>
+        <button id="btnEditSelected" class="btn primary" style="display:none">Редагувати</button>
+        <button id="btnCancelSelection" class="btn warning" style="display:none">Зняти виділення</button>
+        <button id="btnUndo" class="btn history undo" title="Скасувати дію">Скасувати</button>
+        <button id="btnRedo" class="btn history redo" title="Повернути дію">Повернути</button>
       </div>
       <div style="flex:1"></div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button id="btnTheme" class="btn theme-toggle" aria-label="Тема"></button>
-        <button id="btnImportExport" class="btn">Імпорт / Експорт</button>
-        <button id="btnHotkeys" class="btn warning" title="Гарячі клавіші 1–0">Hotkeys</button>
+        <button id="btnTheme" class="btn theme-toggle active" aria-label="Тема">
+          <svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path id="moon" class="moon" d="M21 12.8 A9 9 0 1 1 11.2 3 A7 7 0 0 0 21 12.8" />
+            <g id="sun" class="sun">
+              <circle cx="12" cy="12" r="4" />
+              <line x1="12" y1="2" x2="12" y2="5" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="5" y2="12" />
+              <line x1="19" y1="12" x2="22" y2="12" />
+              <line x1="4.5" y1="4.5" x2="6.5" y2="6.5" />
+              <line x1="17.5" y1="17.5" x2="19.5" y2="19.5" />
+              <line x1="4.5" y1="19.5" x2="6.5" y2="17.5" />
+              <line x1="17.5" y1="6.5" x2="19.5" y2="4.5" />
+            </g>
+          </svg>
+        </button>
+        <button id="btnImportExport" class="btn primary">Імпорт / Експорт</button>
+        <button id="btnHotkeys" class="btn hotkey-btn" title="Гарячі клавіші 1–0">Hotkeys<span class="dot"></span></button>
       </div>
     </div>
 
+    <!-- Робоча зона: повідомлення про скасування та сітка карт шаблонів -->
     <div style="padding:12px;overflow:auto;height:calc(100% - 64px)">
       <div id="undoContainer"></div>
-      <div id="grid" class="grid"></div>
+      <div id="grid" class="grid" role="list" aria-label="Сітка шаблонів" aria-live="polite" aria-relevant="all"></div>
+      <div id="gridStatus" class="sr-only" aria-live="polite"></div>
     </div>
   </main>
 </div>
 
-<!-- Hotkeys HUD -->
+<!-- HUD гарячих клавіш: показує підказку для швидкого копіювання шаблонів -->
 <div id="hotkeysHUD" aria-hidden="true"><span class="keys">1–0</span> — копіювати видимі шаблони</div>
 <div id="tileContextMenu" class="context-menu" aria-hidden="true"></div>
 
-<!-- Settings modal -->
+<!-- Модальне вікно налаштувань: вибір фонового зображення і масштаб карток -->
+<div id="modalSettings" class="modalWrap" aria-hidden="true">
   <div class="modal" role="dialog">
     <div class="modal-header">
       <div>
         <h2>Налаштування</h2>
-        <p class="modal-note">Швидко налаштуйте фон та масштаб карток для зручнішої роботи.</p>
       </div>
-      <button id="btnCloseSettings" class="btn close-btn">×</button>
+      <button id="btnCloseSettings" class="btn close-btn" aria-label="Закрити"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
     </div>
     <div class="settings-panel">
       <div class="settings-group">
-        <div class="settings-row"><span>Фон</span></div>
-        <input id="bgFile" type="file" accept="image/*" />
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-          <button id="bgApply" class="btn">Застосувати</button>
-          <button id="bgClear" class="btn">Очистити</button>
+        <div class="settings-row"><span>Обліковий запис</span></div>
+        <div id="accountPanel" class="account-panel">
+          <div class="account-status">
+            <div class="panel-title">Google</div>
+            <div id="accountName" class="small">Не увійшли</div>
+          </div>
+          <div class="account-actions">
+            <button id="btnGoogleSignIn" class="btn primary">Увійти через Google</button>
+            <button id="btnGoogleSignOut" class="btn warning" style="display:none">Вийти</button>
+          </div>
         </div>
-        <div class="hint">Завантажте зображення, PNG з прозорістю збережеться прозорим.</div>
-        <div id="bgStatus" class="small" style="margin-top:8px"></div>
+        <div class="hint">Підключіться до облікового запису, щоб зберігати шаблони, іконки та порядок категорій.</div>
       </div>
       <div class="settings-group">
         <div class="settings-row"><span>Масштаб плиток</span><span id="zoomValue">100%</span></div>
         <input id="zoomRange" class="settings-slider" type="range" min="0.7" max="1.6" step="0.05" value="1" />
-        <div class="hint">Регулюйте розмір карток для зручного перегляду.</div>
+        <div class="hint">Регулюйте розмір карток для зручнішого перегляду.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Режим анімацій</span></div>
+        <select id="animationMode" class="input">
+          <option value="auto">Авто</option>
+          <option value="fast">Швидкий</option>
+          <option value="normal">Нормальний</option>
+          <option value="low">Економний</option>
+          <option value="reduced">Мінімальні</option>
+        </select>
+        <div class="hint">Виберіть режим анімацій або залиште автопідбір.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Відображення сітки</span></div>
+        <select id="gridMode" class="input">
+          <option value="cards">Квадрати</option>
+          <option value="wide">Прямокутні</option>
+          <option value="text">Текстові</option>
+        </select>
+        <div class="hint">Виберіть комфортний режим перегляду шаблонів.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Фон</span></div>
+        <input id="bgFile" type="file" accept="image/*" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <button id="bgApply" class="btn primary">Застосувати</button>
+          <button id="bgClear" class="btn warning">Очистити</button>
+        </div>
+        <div class="hint">Завантажте зображення, PNG з прозорістю збережеться прозорим.</div>
+        <div id="bgStatus" class="small" style="margin-top:8px"></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Editor modal -->
+<!-- Модальне вікно редактора: редагування назви, категорії, тегів і тексту шаблону -->
 <div id="modalEditor" class="modalWrap" aria-hidden="true">
   <div class="modal" role="dialog">
-    <h3>Редактор шаблону</h3>
-    <div class="note">Поля: Title, Category, Tags, Emoji, Image, Text, Favorite</div>
-
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input id="eTitle" class="input" placeholder="Title" style="flex:1" />
-      <input id="eCategory" class="input" placeholder="Category" style="width:180px" />
+    <div class="modal-header">
+      <div>
+        <h3>Редактор шаблону</h3>
+        <p class="modal-note">Відредагуйте назву, категорію, теги та текст шаблону.</p>
+      </div>
+      <button id="btnCloseEditor" class="btn close-btn" aria-label="Закрити"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
     </div>
 
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input id="eTags" class="input" placeholder="Tags (через кому)" style="flex:1" />
-      <input id="eEmoji" class="input" placeholder="Emoji" style="width:120px" />
+    <div class="modal-body">
+      <div class="field-row">
+        <input id="eTitle" class="input" placeholder="Назва" />
+        <input id="eCategory" class="input" placeholder="Категорія" />
+      </div>
+
+      <div class="field-row field-row--compact">
+        <input id="eTags" class="input" placeholder="Теги" />
+        <input id="eEmoji" class="input" placeholder="Емоджі" />
+        <label class="field-checkbox"><input id="eFavorite" type="checkbox" /> <span>Обране</span></label>
+      </div>
+
+      <div class="field-row">
+        <textarea id="eText" rows="8" class="input" placeholder="Текст шаблону"></textarea>
+      </div>
+
+      <div class="field-row">
+        <input id="eImage" type="file" accept="image/*" />
+      </div>
+      <div class="field-row">
+        <input id="eImageUrl" class="input" placeholder="URL іконки або шлях (наприклад icon/name.png)" />
+      </div>
+      <div class="hint">Якщо не завантажуєш файл, можна вказати URL або відносний шлях до іконки зі сховища.</div>
     </div>
 
-    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-      <input id="eImage" type="file" accept="image/*" />
-      <label style="display:flex;align-items:center;gap:8px"><input id="eFavorite" type="checkbox" /> <span class="small">Обране</span></label>
-    </div>
-
-    <div style="margin-bottom:8px">
-      <textarea id="eText" rows="8" class="input" style="width:100%" placeholder="Text"></textarea>
-    </div>
-
-    <div style="display:flex;gap:8px">
-      <button id="eSave" class="btn">Зберегти</button>
-      <button id="eDelete" class="btn">Видалити</button>
-      <button id="eClose" class="btn">Закрити</button>
+    <div class="modal-actions">
+      <button id="eSave" class="btn primary">Зберегти</button>
+      <button id="eDelete" class="btn warning">Видалити</button>
     </div>
   </div>
 </div>
 
-<!-- Import modal with preview -->
+<!-- Модальне вікно імпорту/експорту: завантаження даних, попередній перегляд і мапінг колонок -->
 <div id="modalImport" class="modalWrap" aria-hidden="true">
   <div class="modal" role="dialog">
     <div class="modal-header">
       <h3>Імпорт / Експорт</h3>
-      <button id="btnImportClose" class="btn close-btn" aria-label="Закрити">×</button>
+      <button id="btnImportClose" class="btn close-btn" aria-label="Закрити"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
     </div>
     <p class="modal-note">Імпортуйте з JSON/XLSX або CSV, експортуйте в JSON.</p>
 
@@ -435,14 +1030,14 @@ body.dark .btn.theme-toggle::before{
       <div class="import-panel">
         <div class="panel-title">Файл (JSON/XLSX)</div>
         <input id="importFile" type="file" accept=".json,.xlsx,.xls" />
-        <button id="btnLoadFilePreview" class="btn full">Переглянути</button>
+        <button id="btnLoadFilePreview" class="btn primary full">Переглянути</button>
       </div>
 
       <div class="import-panel">
         <div class="panel-title">CSV</div>
         <input id="gsCsvLink" class="input" placeholder="CSV link" />
         <div class="import-actions">
-          <button id="btnLoadCsvPreview" class="btn">Переглянути</button>
+          <button id="btnLoadCsvPreview" class="btn primary">Переглянути</button>
           <button id="btnAutoImport" class="btn primary">Автоімпорт</button>
         </div>
       </div>
@@ -451,9 +1046,9 @@ body.dark .btn.theme-toggle::before{
     <div class="export-panel">
       <div>
         <div class="panel-title">Експорт</div>
-        <div class="hint">Завантажте всі шаблони у JSON.</div>
+        <div class="hint">Завантажте весь стан: шаблони, налаштування, метадані та дані акаунту.</div>
       </div>
-      <button id="btnExportJson" class="btn">Експорт JSON</button>
+      <button id="btnExportJson" class="btn primary">Експорт JSON</button>
     </div>
 
     <div id="previewArea" style="display:none;margin-top:8px">
@@ -479,8 +1074,8 @@ body.dark .btn.theme-toggle::before{
       </div>
 
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button id="btnConfirmImport" class="btn">Імпортувати підтверджені рядки</button>
-        <button id="btnCancelPreview" class="btn cancel">Скасувати</button>
+        <button id="btnConfirmImport" class="btn primary">Імпортувати підтверджені рядки</button>
+        <button id="btnCancelPreview" class="btn warning">Скасувати</button>
       </div>
     </div>
 
@@ -488,26 +1083,28 @@ body.dark .btn.theme-toggle::before{
   </div>
 </div>
 
-<!-- libs -->
+<!-- Підключення бібліотек: читання XLSX, CSV та підтримка сортування списків -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
+<!-- Скрипти додатку: логіка завантаження, збереження, фільтрація та дії користувача -->
 <script>
-/*
-  Полный index.html с:
-  - copyAndCount(id, silent)
-  - hotkeys 1-0 (HUD)
-  - экспорт JSON из localStorage (включая base64 images)
-  - превью импорта и ручной маппинг
-  - удаление пустых плиток
-*/
 
 (function(){
+  /* Ключі збереження та джерела даних.
+     STORAGE_KEY зберігає масив шаблонів у localStorage.
+     CATEGORY_ORDER_KEY визначає порядок категорій.
+     BG_KEY і THEME_KEY зберігають стан фону і теми.
+     DEFAULT_CSV_IMPORT_URL використовується для перевірки оновлень з Google Sheets. */
   const STORAGE_KEY = 'brainTemplates';
   const CATEGORY_ORDER_KEY = 'categoryOrder';
   const BG_KEY = 'mainBackground';
   const THEME_KEY = 'themePreference';
+  const DEFAULT_CSV_IMPORT_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSK7Pw9yTYj7PzsyFaeaUP8PmfegdxYR900xhC0MKgeZ9DQ-zCimnNMFarxdsBKXSBp9lm3LOfM8MP7/pub?output=csv';
+  const GOOGLE_SHEET_HASH_KEY = 'googleSheetHash';
+  const GOOGLE_SHEET_CHECK_KEY = 'googleSheetLastCheck';
   const UI_TILE_KEY = 'uiTileWidth';
   const UNDO_TIMEOUT_MS = 9000;
 
@@ -515,17 +1112,163 @@ body.dark .btn.theme-toggle::before{
   const safeOn = (el, ev, fn) => { if(!el) return; try{ el.addEventListener(ev, fn); }catch(e){ console.warn(e); } };
   const uid = ()=> Date.now().toString(36)+'-'+Math.floor(Math.random()*1e6).toString(36);
 
+  /* Утиліти для роботи з текстом, тегами та унікальними ідентифікаторами */
+  /* Очищає рядок від невидимих символів та зайвих пробілів. */
   function sanitizeText(v){ if(!v) return ''; return String(v||'').replace(/\uFEFF/g,'').trim(); }
+  /* Розбирає рядок тегів у чистий масив міток. */
   function parseTags(v){ if(!v) return []; if(Array.isArray(v)) return v.map(x=>String(x).toLowerCase().trim()).filter(Boolean); return String(v).split(/[,;]+/).map(x=>x.toLowerCase().trim()).filter(Boolean); }
+  /* Нормалізує текст для надійного порівняння. */
+  function normalizeCompareText(v){ return normalizeSearch(String(v||'')); }
+
+  /* Оновлення існуючого шаблону при імпорті.
+     Зберігає ідентифікатор, категорію, теги та дату оновлення. */
+  function isDataUrl(value){ return String(value||'').trim().startsWith('data:'); }
+
+  /* Оновлює існуючий шаблон при імпорті схожих даних. */
+  function updateExistingTemplate(existing, item){
+    existing.title = item.title;
+    existing.text = item.text;
+    existing.category = item.category || existing.category || 'Без категорії';
+    existing.tags = item.tags || [];
+    existing.emoji = item.emoji || '';
+    const incomingImage = String(item.image || '').trim();
+    if(incomingImage){
+      if(isDataUrl(incomingImage) && existing.image && !isDataUrl(existing.image)){
+        // Якщо вже є URL/шлях до іконки, не замінюємо його великим Base64 даними.
+      } else {
+        existing.image = incomingImage;
+      }
+    }
+    const incomingImageName = String(item.imageName || '').trim();
+    if(incomingImageName){
+      existing.imageName = incomingImageName;
+    }
+    existing.updatedAt = Date.now();
+  }
+  /* Зливає імпортовані шаблони з поточними, уникаючи дублікатів. */
+  function mergeImportedTemplates(items){
+    let added = 0, updated = 0, skipped = 0;
+    items.forEach(item => {
+      const shaped = ensureShape(item);
+      if(!shaped.title && !shaped.text) return;
+      const exact = templates.find(existing => normalizeCompareText(existing.title) === normalizeCompareText(shaped.title) && normalizeCompareText(existing.text) === normalizeCompareText(shaped.text));
+      if(exact){
+        updateExistingTemplate(exact, shaped);
+        if(shaped.category && !categoryOrder.includes(shaped.category)) categoryOrder.push(shaped.category);
+        updated++;
+        return;
+      }
+      const match = templates.find(existing => normalizeCompareText(existing.title) === normalizeCompareText(shaped.title) || normalizeCompareText(existing.text) === normalizeCompareText(shaped.text));
+      if(match){
+        updateExistingTemplate(match, shaped);
+        if(shaped.category && !categoryOrder.includes(shaped.category)) categoryOrder.push(shaped.category);
+        updated++;
+        return;
+      }
+      templates.push(shaped);
+      if(shaped.category && !categoryOrder.includes(shaped.category)) categoryOrder.push(shaped.category);
+      added++;
+    });
+    persist();
+    renderTemplates();
+    return {added, updated, skipped};
+  }
+  /* Обчислює простий хеш тексту для визначення змін. */
+  function getTextHash(text){
+    let hash = 0;
+    for(let i=0;i<text.length;i++){
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return String(hash);
+  }
+
+  const DEFAULT_ICON_FOLDER = 'icon';
+
+  /* Нормалізує шлях до іконки: використовує папку icon/ для локальних імен файлів. */
+  function normalizeImagePath(value){
+    const image = String(value || '').trim();
+    if(!image) return '';
+    if(image.startsWith('data:')) return image;
+    if(/^https?:\/\//i.test(image) || image.startsWith('//')) return image;
+    const path = image.replace(/\\/g,'/').trim();
+    const basename = path.split('/').pop();
+    if(!basename) return '';
+    if(path.startsWith('icon/') || path.startsWith('icons/')){
+      return `${DEFAULT_ICON_FOLDER}/${basename}`;
+    }
+    return `${DEFAULT_ICON_FOLDER}/${basename}`;
+  }
+
+  /* Визначає джерело зображення для шаблону: локальний data URL, відносний icon/ шлях або зовнішній URL. */
+  function resolveImageSource(item){
+    const rawImage = String(item.image || item['Image URL'] || '').trim();
+    const imageName = sanitizeText(item.imageName || item['Image Name'] || item['Image Filename'] || '');
+    if(rawImage.startsWith('data:')){
+      return imageName ? normalizeImagePath(imageName) : rawImage;
+    }
+    if(rawImage){
+      return normalizeImagePath(rawImage);
+    }
+    return imageName ? normalizeImagePath(imageName) : '';
+  }
+
+  /* Перевірка Google таблиці на оновлення.
+     Гешує CSV, зберігає стан перевірки і показує нотифікацію при зміні. */
+  async function checkGoogleSheetUpdates(url, notify = true){
+    if(!url) return;
+    try{
+      const res = await fetch(url, { cache:'no-cache' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const csv = await res.text();
+      const hash = getTextHash(csv);
+      const prevHash = localStorage.getItem(GOOGLE_SHEET_HASH_KEY);
+      localStorage.setItem(GOOGLE_SHEET_HASH_KEY, hash);
+      localStorage.setItem(GOOGLE_SHEET_CHECK_KEY, String(Date.now()));
+      if(prevHash && prevHash !== hash){
+        if(notify){
+          toast('Знайдено оновлення Google таблиці. Натисніть Автоімпорт для оновлення.');
+          const btn = $('btnAutoImport'); if(btn) btn.classList.add('update-available');
+        }
+      }
+    }catch(err){
+      console.warn('Google sheet check failed', err);
+    }
+  }
+  /* Запускає фонову перевірку Google таблиці за розкладом. */
+  function scheduleGoogleSheetUpdateCheck(){
+    const url = $('gsCsvLink')?.value.trim() || DEFAULT_CSV_IMPORT_URL;
+    if(!url) return;
+    checkGoogleSheetUpdates(url, false);
+    setInterval(()=>{
+      const link = $('gsCsvLink')?.value.trim() || DEFAULT_CSV_IMPORT_URL;
+      if(link) checkGoogleSheetUpdates(link, true);
+    }, 60 * 60 * 1000);
+  }
+  /* Прибирає індикатор доступного оновлення CSV з кнопки. */
+  function clearUpdateNotice(){ const btn = $('btnAutoImport'); if(btn) btn.classList.remove('update-available'); }
+  /* Прив’язує очищення індикатора оновлення до зміни посилання CSV. */
+  function ensureUpdateNoticeBinding(){ safeOn($('gsCsvLink'), 'input', ()=> clearUpdateNotice()); }
+  /* Формує повідомлення про результати імпорту (додано, оновлено, пропущено). */
+  function importSummaryMessage(result){
+    const parts = [];
+    if(result.added) parts.push(`додано ${result.added}`);
+    if(result.updated) parts.push(`оновлено ${result.updated}`);
+    if(result.skipped) parts.push(`пропущено ${result.skipped}`);
+    return parts.length ? parts.join(', ') : 'Немає нових шаблонів';
+  }
+  /* Уніфікує об’єкт шаблону до стандартної структури перед збереженням. */
   function ensureShape(item){
+    /* Структура об'єкта шаблону: гарантує стандартні поля перед збереженням */
     return {
       id: item.id ? String(item.id) : uid(),
       title: sanitizeText(item.title || item.Title || item.name || ''),
       text: sanitizeText(item.text || item.Text || item.Content || item.content || ''),
       category: sanitizeText(item.category || item.Category || item.cat || 'Без категорії'),
       tags: parseTags(item.tags || item.Tags || item.TagsList || ''),
-      emoji: (item.emoji || item.Emoji || '').toString().slice(0,4),
-      image: (item.image || item['Image URL'] || '').toString().trim(),
+      emoji: Array.from((item.emoji || item.Emoji || '').toString()).slice(0,4).join(''),
+      image: resolveImageSource(item),
+      imageName: sanitizeText(item.imageName || item['Image Name'] || item['Image Filename'] || ''),
       favorite: Boolean(item.favorite || false),
       pinned: Boolean(item.pinned || false),
       usage: Number(item.usage || 0),
@@ -533,7 +1276,8 @@ body.dark .btn.theme-toggle::before{
     };
   }
 
-  // state
+  /* Стан додатку: шаблони з localStorage або дефолтний набір шаблонів.
+     Ця змінна зберігає всі шаблони, які рендеряться у робочій області. */
   let templates = (JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || [
     { id:'s1', title:'Привітання', category:'Basic', text:'Вітаю! Зараз допоможу вам.', tags:['вітання'], emoji:'💬', favorite:true, usage:8 },
     { id:'s2', title:'eSIM QR', category:'SIM', text:'Надсилаю QR-код.', tags:['esim','qr'], emoji:'📱', favorite:false, usage:3 }
@@ -543,16 +1287,197 @@ body.dark .btn.theme-toggle::before{
   let currentCategory = 'Усі';
   let editMode = false;
   let openCategories = new Set();
+  let categoryRefreshTimeout = null;
   window.selectedTiles = [];
   let lastSelectedIndex = null;
   let editingId = null;
+  let searchDebounceTimer = null;
 
-  // undo
+  const MOTION_MODE_KEY = 'animationModePreference';
+  const GRID_MODE_KEY = 'uiGridMode';
+  const ACCOUNT_USER_KEY = 'accountUser';
+  const ACCOUNT_DATA_KEY = 'accountState';
+  const HISTORY_LIMIT = 40;
+  const GOOGLE_CLIENT_ID = '961679059140-87ppac3jfadtvreeq40tt8v3udvuag.apps.googleusercontent.com';
+  let gridDisplayMode = localStorage.getItem(GRID_MODE_KEY) || 'cards';
+  let motionModePreference = localStorage.getItem(MOTION_MODE_KEY) || 'auto';
+  let accountUser = JSON.parse(localStorage.getItem(ACCOUNT_USER_KEY) || 'null');
+  let accountData = JSON.parse(localStorage.getItem(ACCOUNT_DATA_KEY) || 'null');
+
+  let historyStack = [];
+
+  function getAccountStatePayload(){
+    return {
+      meta: {
+        savedAt: new Date().toISOString(),
+        source: 'SnapReply',
+        version: '1.0',
+        user: accountUser ? { id: accountUser.id, email: accountUser.email, name: accountUser.name } : null
+      },
+      settings: {
+        theme: document.body.classList.contains('dark') ? 'dark' : 'light',
+        uiTileWidth: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 220,
+        motionModePreference,
+        gridDisplayMode,
+        backgroundImage: $('mainArea')?.style.backgroundImage || ''
+      },
+      templates: templates.map(t => ({ ...t })),
+      categoryOrder: [...categoryOrder]
+    };
+  }
+
+  function saveAccountState(reason = 'auto-save'){
+    if(!accountUser) return;
+    try{
+      accountData = getAccountStatePayload();
+      localStorage.setItem(ACCOUNT_DATA_KEY, JSON.stringify(accountData));
+      console.log(`Account state saved (${reason})`);
+    }catch(err){
+      console.warn('Не вдалося зберегти стан облікового запису', err);
+    }
+  }
+
+  function restoreAccountState(){
+    if(!accountUser || !accountData) return;
+    if(Array.isArray(accountData.templates)){
+      templates = accountData.templates.map(ensureShape);
+    }
+    if(Array.isArray(accountData.categoryOrder)){
+      categoryOrder = [...accountData.categoryOrder];
+    }
+    const settings = accountData.settings || {};
+    if(settings.backgroundImage){
+      $('mainArea').style.backgroundImage = settings.backgroundImage;
+      localStorage.setItem(BG_KEY, settings.backgroundImage);
+    }
+    if(settings.gridDisplayMode){
+      gridDisplayMode = settings.gridDisplayMode;
+      localStorage.setItem(GRID_MODE_KEY, gridDisplayMode);
+      if($('gridMode')) $('gridMode').value = gridDisplayMode;
+    }
+    if(settings.motionModePreference){
+      motionModePreference = settings.motionModePreference;
+      localStorage.setItem(MOTION_MODE_KEY, motionModePreference);
+      applyMotionMode(motionModePreference);
+      if($('animationMode')) $('animationMode').value = motionModePreference;
+    }
+    if(settings.uiTileWidth){
+      const width = Number(settings.uiTileWidth) || 220;
+      document.documentElement.style.setProperty('--tile', width + 'px');
+      document.documentElement.style.setProperty('--zoom-scale', (width / 220).toFixed(3));
+      localStorage.setItem(UI_TILE_KEY, String(width));
+      if($('zoomRange')) $('zoomRange').value = (width / 220).toFixed(2);
+      if($('zoomValue')) $('zoomValue').textContent = Math.round((width / 220) * 100) + '%';
+    }
+    if(settings.theme){
+      if(settings.theme === 'dark'){
+        document.body.classList.add('dark');
+        document.body.classList.remove('light');
+      } else {
+        document.body.classList.remove('dark');
+        document.body.classList.add('light');
+      }
+      updateLogo();
+    }
+    persist();
+  }
+
+  function updateAccountUI(){
+    const accountName = $('accountName');
+    const signInBtn = $('btnGoogleSignIn');
+    const signOutBtn = $('btnGoogleSignOut');
+    if(accountUser){
+      if(accountName) accountName.textContent = `${accountUser.name || accountUser.email} (Google)`;
+      if(signInBtn) signInBtn.style.display = 'none';
+      if(signOutBtn) signOutBtn.style.display = 'inline-flex';
+    } else {
+      if(accountName) accountName.textContent = 'Не увійшли';
+      if(signInBtn) signInBtn.style.display = 'inline-flex';
+      if(signOutBtn) signOutBtn.style.display = 'none';
+    }
+  }
+
+  function parseJwt(token){
+    try{
+      const base64Url = token.split('.')[1] || '';
+      const base64 = base64Url.replace(/-/g,'+').replace(/_/g,'/');
+      const json = decodeURIComponent(Array.prototype.map.call(window.atob(base64), c => '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      return JSON.parse(json);
+    }catch(e){
+      console.warn('JWT parse error', e);
+      return {};
+    }
+  }
+
+  function initGoogleAccount(){
+    updateAccountUI();
+    if(!window.google || !window.google.accounts || !window.google.accounts.id){
+      const script = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if(script && !script.dataset.gsiInitAttached){
+        script.addEventListener('load', initGoogleAccount);
+        script.dataset.gsiInitAttached = '1';
+      }
+      return;
+    }
+    if(!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE'){
+      console.warn('Google client ID is not configured. Set GOOGLE_CLIENT_ID in index.htm');
+      return;
+    }
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+    if(!accountUser){
+      google.accounts.id.prompt();
+    }
+  }
+
+  function handleGoogleCredential(response){
+    if(!response?.credential) return;
+    const payload = parseJwt(response.credential);
+    if(!payload || !payload.sub) return;
+    accountUser = {
+      id: payload.sub,
+      email: payload.email,
+      name: payload.name || payload.email,
+      picture: payload.picture || ''
+    };
+    localStorage.setItem(ACCOUNT_USER_KEY, JSON.stringify(accountUser));
+    updateAccountUI();
+    saveAccountState('Google sign-in');
+    toast('Успішно увійшли через Google');
+  }
+
+  function signOutGoogle(){
+    if(window.google && window.google.accounts && window.google.accounts.id){
+      google.accounts.id.disableAutoSelect();
+    }
+    accountUser = null;
+    accountData = null;
+    localStorage.removeItem(ACCOUNT_USER_KEY);
+    localStorage.removeItem(ACCOUNT_DATA_KEY);
+    updateAccountUI();
+    toast('Вийшли з облікового запису');
+  }
+  let redoStack = [];
+  let historyActionLabel = '';
+
+  // скасування
   let undoStack = [];
   let undoTimer = null;
 
-  function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(templates)); localStorage.setItem(CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder)); }
+  /* Збереження стану у localStorage: шаблони та порядок категорій. */
+  /* Зберігає шаблони і порядок категорій у localStorage. */
+  function persist(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
+    localStorage.setItem(CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder));
+    if(accountUser){ saveAccountState('persist'); }
+  }
 
+  /* Відображення тимчасового повідомлення в правому верхньому куті. */
+  /* Показує коротке спливаюче повідомлення (toast) користувачеві. */
   function toast(msg){
     let el = $('__toast');
     if(!el){
@@ -565,19 +1490,66 @@ body.dark .btn.theme-toggle::before{
     setTimeout(()=>{ el.style.opacity='0'; }, 1400);
   }
 
-  // UI sync
+  function updateHistoryButtons(){
+    const btnUndo = $('btnUndo');
+    const btnRedo = $('btnRedo');
+    if(btnUndo) btnUndo.disabled = historyStack.length === 0;
+    if(btnRedo) btnRedo.disabled = redoStack.length === 0;
+  }
+
+  function pushHistory(actionLabel = 'Зміни'){ 
+    redoStack = [];
+    if(historyStack.length >= HISTORY_LIMIT) historyStack.shift();
+    historyStack.push({ templates: JSON.parse(JSON.stringify(templates)), categoryOrder: [...categoryOrder], label: actionLabel });
+    updateHistoryButtons();
+  }
+
+  function undoAction(){
+    if(historyStack.length === 0) return;
+    const current = { templates: JSON.parse(JSON.stringify(templates)), categoryOrder: [...categoryOrder] };
+    redoStack.push(current);
+    const prev = historyStack.pop();
+    templates = prev.templates.map(ensureShape);
+    categoryOrder = [...prev.categoryOrder];
+    persist();
+    renderTemplates();
+    updateHistoryButtons();
+    toast('Скасовано останню дію');
+  }
+
+  function redoAction(){
+    if(redoStack.length === 0) return;
+    const next = redoStack.pop();
+    historyStack.push({ templates: JSON.parse(JSON.stringify(templates)), categoryOrder: [...categoryOrder], label: 'Повтор' });
+    templates = next.templates.map(ensureShape);
+    categoryOrder = [...next.categoryOrder];
+    persist();
+    renderTemplates();
+    updateHistoryButtons();
+    toast('Повернуто дію');
+  }
+
+  /* Оновлення видимих кнопок дій у режимі редагуванні.
+     Показує або ховає кнопки залежно від кількості вибраних шаблонів. */
   function syncSelectionUI(){
     const selectAllBtn = $('btnSelectAll');
     const deleteBtn = $('btnDeleteSelected');
     const editSelectedBtn = $('btnEditSelected');
     const cancelBtn = $('btnCancelSelection');
+    const btnUndo = $('btnUndo');
+    const btnRedo = $('btnRedo');
     if(selectAllBtn) selectAllBtn.style.display = editMode ? 'inline-flex' : 'none';
     if(deleteBtn) deleteBtn.style.display = (editMode && window.selectedTiles.length) ? 'inline-flex' : 'none';
     if(editSelectedBtn) editSelectedBtn.style.display = (editMode && window.selectedTiles.length === 1) ? 'inline-flex' : 'none';
     if(cancelBtn) cancelBtn.style.display = (editMode && window.selectedTiles.length) ? 'inline-flex' : 'none';
+    if(btnUndo) btnUndo.style.display = editMode ? 'inline-flex' : 'none';
+    if(btnRedo) btnRedo.style.display = editMode ? 'inline-flex' : 'none';
+    if(btnUndo) btnUndo.disabled = historyStack.length === 0;
+    if(btnRedo) btnRedo.disabled = redoStack.length === 0;
   }
 
-  // selection helpers
+  // Допоміжні функції вибору: виділення, скасування та вибір усіх видимих плиток.
+  /* Перемикає вибір заданої плитки шаблону. */
   function toggleSelection(id){
     const tile = document.querySelector(`.tile[data-id="${id}"]`);
     const idx = window.selectedTiles.indexOf(id);
@@ -586,11 +1558,13 @@ body.dark .btn.theme-toggle::before{
     syncSelectionUI();
   }
 
+  /* Скидає всі виділення плиток та оновлює інтерфейс. */
   function clearSelection(){
     window.selectedTiles.forEach(id => { const el = document.querySelector(`.tile[data-id="${id}"]`); if(el) el.classList.remove('selected'); });
     window.selectedTiles = []; lastSelectedIndex = null; syncSelectionUI();
   }
 
+  /* Виділяє всі шаблони, які наразі відфільтровані й видимі. */
   function selectAllVisible(){
     const list = filtered();
     window.selectedTiles = list.map(t => t.id);
@@ -598,28 +1572,231 @@ body.dark .btn.theme-toggle::before{
     syncSelectionUI();
   }
 
-  // filtered
-  function filtered(){
-    const q = ($('search')?.value || '').trim().toLowerCase();
-    const matchesSearch = (t) => {
-      if(!q) return true;
-      const field = (t.title + ' ' + t.text + ' ' + (t.tags||[]).join(' ') + ' ' + t.category + ' ' + (t.emoji||'')).toLowerCase();
-      return field.includes(q);
-    };
-    if(q){
-      const results = templates.filter(matchesSearch);
-      if(currentCategory === '📌 Обране') return results.filter(t => t.favorite);
-      return results;
-    }
-    return templates.filter(t => {
-      if(currentCategory === 'Усі') return true;
-      if(currentCategory === '📌 Обране') return t.favorite;
-      if(currentCategory.includes('/')) return t.category === currentCategory;
-      return t.category === currentCategory || t.category.startsWith(currentCategory + '/');
-    });
+  // Допоміжні функції пошуку: нормалізація, фікс розкладки та транслітерація.
+  /* Нормалізує рядок для пошуку: регістр, розкладка, спецсимволи. */
+  function normalizeSearch(str){
+    return String(str || '')
+      .normalize('NFKD')
+      .toLowerCase()
+      .replace(/ё/g,'е')
+      .replace(/э/g,'е')
+      .replace(/і/g,'и')
+      .replace(/ы/g,'и')
+      .replace(/ї/g,'и')
+      .replace(/є/g,'е')
+      .replace(/й/g,'и')
+      .replace(/ґ/g,'г')
+      .replace(/[^\p{L}\p{N}\s]/gu,' ')
+      .replace(/\s+/g,' ')
+      .trim();
   }
 
-  // build tile
+  /* Відповідність латинської розкладки українським символам для виправлення введення */
+  const enToRu = {
+    q:'й', w:'ц', e:'у', r:'к', t:'е', y:'н', u:'г', i:'ш', o:'щ', p:'з',
+    '[':'х', ']':'ґ',
+    a:'ф', s:'і', d:'в', f:'а', g:'п', h:'р', j:'о', k:'л', l:'д',
+    ';':'ж', "'":'є',
+    z:'я', x:'ч', c:'с', v:'м', b:'и', n:'т', m:'ь',
+    ',':'б', '.':'ю', '/':'.'
+  };
+
+  /* Зворотна мапа розкладки для перетворення українських символів у латиницю */
+  const ruToEn = Object.fromEntries(
+    Object.entries(enToRu).map(([k,v]) => [v,k])
+  );
+
+  /* Виправляє неправильну раскладку клавіатури у пошуковому запиті. */
+  function fixLayout(str){
+    return String(str || '').split('').map(ch => enToRu[ch] || ruToEn[ch] || ch).join('');
+  }
+
+  /* Мапа транслітерації латиниці у кирилицю для додаткових варіантів пошуку */
+  const translitMap = {
+    a:'а', b:'б', v:'в', g:'г', d:'д', e:'е', z:'з', i:'и', y:'й', k:'к',
+    l:'л', m:'м', n:'н', o:'о', p:'п', r:'р', s:'с', t:'т', u:'у', f:'ф',
+    h:'х', c:'ц'
+  };
+
+  /* Перетворює латинські символи у кирилицю для пошукових варіантів. */
+  function translit(str){
+    return String(str || '').split('').map(ch => translitMap[ch] || ch).join('');
+  }
+
+  /* Зворотна мапа транслітерації для перетворення кирилиці у латиницю */
+  const cyrToLat = Object.fromEntries(
+    Object.entries(translitMap).map(([k,v]) => [v,k])
+  );
+
+  /* Перетворює кириличні символи назад у латиницю. */
+  function translitBack(str){
+    return String(str || '').split('').map(ch => cyrToLat[ch] || ch).join('');
+  }
+
+  /* Розбиває рядок на окремі слова для аналізу пошуку. */
+  function splitWords(str){
+    return String(str || '').split(/\s+/).filter(Boolean);
+  }
+
+  /* Обчислює відстань Левенштейна між двома рядками. */
+  function levenshtein(a, b){
+    if(a === b) return 0;
+    const al = a.length, bl = b.length;
+    if(al === 0) return bl;
+    if(bl === 0) return al;
+
+    let prev = Array(al + 1).fill(0).map((_, i) => i);
+    let curr = Array(al + 1).fill(0);
+
+    for(let j = 1; j <= bl; j++){
+      curr[0] = j;
+      const bj = b[j - 1];
+      for(let i = 1; i <= al; i++){
+        const cost = a[i - 1] === bj ? 0 : 1;
+        curr[i] = Math.min(prev[i] + 1, curr[i - 1] + 1, prev[i - 1] + cost);
+      }
+      [prev, curr] = [curr, prev];
+    }
+    return prev[al];
+  }
+
+  /* Формує додаткові варіанти запиту для нечіткого пошуку. */
+  function buildSearchVariants(query){
+    const normalized = normalizeSearch(query);
+    if(!normalized) return [];
+    const layout = normalizeSearch(fixLayout(normalized));
+    const translitQuery = normalizeSearch(translit(normalized));
+    const translitLayout = normalizeSearch(translit(layout));
+    const translitBackQuery = normalizeSearch(translitBack(normalized));
+    const translitBackLayout = normalizeSearch(translitBack(layout));
+    return Array.from(new Set([
+      normalized,
+      layout,
+      translitQuery,
+      translitLayout,
+      translitBackQuery,
+      translitBackLayout
+    ].filter(Boolean)));
+  }
+
+  /* Визначає, чи відповідає слово тексту з урахуванням нечіткого збігу. */
+  function fuzzyMatch(text, word){
+    if(!word) return false;
+    if(text.includes(word)) return true;
+
+    if(word.length <= 2) {
+      return text.includes(word);
+    }
+
+    const tokens = Array.from(new Set(text.split(' ').filter(Boolean)));
+    const maxDistance = Math.max(1, Math.floor(word.length * 0.25));
+
+    for(const token of tokens){
+      if(token.includes(word) || word.includes(token)) return true;
+      if(token.startsWith(word) || word.startsWith(token)) return true;
+      if(levenshtein(token, word) <= maxDistance) return true;
+    }
+
+    return false;
+  }
+
+  /* Фільтрує шаблони за поточною категорією. */
+  function categoryFilter(item){
+    if(currentCategory === 'Усі') return true;
+    if(currentCategory === '⭐ Обране') return item.favorite;
+    if(currentCategory.includes('/')) return item.category === currentCategory;
+    return item.category === currentCategory || item.category.startsWith(currentCategory + '/');
+  }
+
+  /* Оцінює релевантність шаблону до пошукового запиту. */
+  function scoreItem(item, query){
+    if(!query) return 0;
+    const title = normalizeSearch(item.title || '');
+    const text = normalizeSearch([item.title, item.text, (item.tags || []).join(' '), item.category, item.emoji].filter(Boolean).join(' '));
+    const tags = normalizeSearch((item.tags || []).join(' '));
+    const category = normalizeSearch(item.category || '');
+    const emoji = normalizeSearch(item.emoji || '');
+
+    let score = 0;
+    if(text.includes(query)) score += 30;
+    if(title.includes(query)) score += 25;
+    if(tags.includes(query)) score += 12;
+    if(category.includes(query)) score += 10;
+    if(emoji.includes(query)) score += 8;
+
+    const words = splitWords(query);
+    words.forEach(word => {
+      if(!word) return;
+      if(title.includes(word)) score += 18;
+      else if(fuzzyMatch(title, word)) score += 10;
+
+      if(tags.includes(word)) score += 12;
+      else if(fuzzyMatch(tags, word)) score += 4;
+
+      if(category.includes(word)) score += 8;
+      else if(fuzzyMatch(category, word)) score += 3;
+
+      if(emoji.includes(word)) score += 6;
+      if(text.includes(word)) score += 12;
+      else if(fuzzyMatch(text, word)) score += 4;
+    });
+
+    if(item.pinned) score *= 1.15;
+    return score * (item.weight || 1);
+  }
+
+  /* Перевіряє наявність точних збігів серед пошукових варіантів. */
+  function hasPreciseMatch(item, variants){
+    const title = normalizeSearch(item.title || '');
+    const tags = normalizeSearch((item.tags || []).join(' '));
+    const emoji = normalizeSearch(item.emoji || '');
+    const words = Array.from(new Set(variants.flatMap(v => splitWords(v))));
+
+    for(const variant of variants){
+      if(!variant) continue;
+      if(title.includes(variant) || tags.includes(variant) || emoji.includes(variant)) return true;
+    }
+
+    for(const word of words){
+      if(word.length < 2) continue;
+      if(title.includes(word) || tags.includes(word) || emoji.includes(word)) return true;
+    }
+
+    return false;
+  }
+
+  /* Повертає відфільтрований список шаблонів для показу. */
+  function filtered(){
+    const rawQuery = $('search')?.value || '';
+    const q = rawQuery.trim();
+    if(!q) {
+      return templates.filter(categoryFilter);
+    }
+
+    const variants = buildSearchVariants(q);
+    if(!variants.length) return templates;
+
+    const minScore = Math.max(12, Math.min(40, q.length * 5));
+    const scored = templates
+      .map(item => {
+        const score = variants.reduce((sum, variant) => sum + scoreItem(item, variant), 0);
+        return { item, score };
+      })
+      .filter(result => result.score >= minScore)
+      .sort((a,b) => b.score - a.score);
+
+    if(scored.length > 28){
+      const precise = scored
+        .filter(result => hasPreciseMatch(result.item, variants))
+        .map(result => result.item);
+      if(precise.length) return precise;
+    }
+
+    return scored.map(result => result.item);
+  }
+
+  // Створення DOM-плитки для кожного шаблону з подіями та стилями.
+  /* Створює DOM-елемент плитки для одного шаблону. */
   function buildTile(t){
     const tile = document.createElement('div');
     tile.className = 'tile';
@@ -634,6 +1811,8 @@ body.dark .btn.theme-toggle::before{
       const img = document.createElement('img');
       img.src = t.image;
       img.alt = t.title || '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
       img.addEventListener('click', (e)=>{ e.stopPropagation(); copyAndCount(t.id); });
       thumb.appendChild(img);
     } else {
@@ -720,40 +1899,138 @@ body.dark .btn.theme-toggle::before{
   }
 
   // remove empty templates permanently
+  /* Видаляє порожні шаблони з колекції. */
   function removeEmptyTemplates(){
     const before = templates.length;
     templates = templates.filter(t => (t.title && t.title.trim()) || (t.text && t.text.trim()));
     if(templates.length !== before) persist();
   }
 
-  // render
-  function renderTemplates(){
+  function getVisibleRange(grid, listLength){
+    const container = grid.parentElement;
+    if(!container) return [0, listLength];
+    const scrollTop = container.scrollTop;
+    const viewportHeight = container.clientHeight;
+    const tileSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 200;
+    const gap = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 10;
+    const columns = Math.max(1, Math.floor(grid.clientWidth / (tileSize + gap)));
+    const rowHeight = tileSize + gap;
+    const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - 2);
+    const endRow = Math.min(Math.ceil((scrollTop + viewportHeight) / rowHeight) + 2, Math.ceil(listLength / columns));
+    const start = startRow * columns;
+    const end = Math.min(listLength, endRow * columns);
+    return [start, end];
+  }
+
+  // Рендер-логіка: оновлення інтерфейсу шаблонів.
+  /* Рендерить сітку плиток у головній області. */
+  function renderTemplateGrid(){
     removeEmptyTemplates();
     const grid = $('grid');
     if(!grid) return;
-    grid.innerHTML = '';
+    const searchQuery = $('search')?.value.trim() || '';
     const list = filtered();
+    const reducedMotion = document.body.dataset.motion === 'reduced';
+    grid.classList.remove('display-cards','display-wide','display-text');
+    grid.classList.add(`display-${gridDisplayMode}`);
+    grid.innerHTML = '';
+    grid.setAttribute('role','list');
+    grid.setAttribute('aria-label','Сітка шаблонів');
+    grid.setAttribute('aria-live','polite');
 
     if(list.length === 0){
-      initSortableTemplates();
-      renderCategories();
-      syncSelectionUI();
-      return;
+      const emptyState = document.createElement('div');
+      emptyState.className = 'grid-empty-state';
+      emptyState.setAttribute('role','status');
+      emptyState.innerHTML = searchQuery
+        ? `<strong>Нічого не знайдено</strong><br>За запитом «${searchQuery}» не знайдено шаблонів. Спробуйте інший запит або змініть категорію.`
+        : `Список шаблонів порожній. Додайте шаблон, щоб почати роботу.`;
+      grid.appendChild(emptyState);
     }
 
-    list.forEach((t, i) => {
-      const tile = buildTile(t);
-      tile.style.animationDelay = (i * 12) + 'ms';
-      grid.appendChild(tile);
+    const placeholders = list.map((t, index) => {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'tile placeholder';
+      placeholder.dataset.index = index;
+      placeholder.setAttribute('role','listitem');
+      if(gridDisplayMode === 'wide' || gridDisplayMode === 'text'){
+        placeholder.style.minHeight = '120px';
+      }
+      if(!reducedMotion){
+        placeholder.style.animationDelay = (index * 12) + 'ms';
+      }
+      return placeholder;
     });
+    placeholders.forEach(el => grid.appendChild(el));
+
+    const updateVisibility = () => {
+      const [start, end] = getVisibleRange(grid, list.length);
+      for(let idx = 0; idx < placeholders.length; idx++){
+        const placeholder = placeholders[idx];
+        if(idx < start || idx >= end){
+          if(placeholder.dataset.rendered){
+            placeholder.innerHTML = '';
+            placeholder.dataset.rendered = '';
+            placeholder.className = 'tile placeholder';
+          }
+          continue;
+        }
+        if(placeholder.dataset.rendered) continue;
+        const rendered = buildTile(list[idx]);
+        rendered.dataset.index = idx;
+        rendered.classList.remove('placeholder');
+        rendered.style.animationDelay = reducedMotion ? '0ms' : (idx * 12) + 'ms';
+        placeholder.replaceWith(rendered);
+        placeholders[idx] = rendered;
+        placeholders[idx].dataset.rendered = 'true';
+      }
+    };
+
+    const container = grid.parentElement;
+    if(container){
+      container.removeEventListener('scroll', updateVisibility);
+      container.addEventListener('scroll', updateVisibility);
+    }
+    window.removeEventListener('resize', updateVisibility);
+    window.addEventListener('resize', updateVisibility);
+    updateVisibility();
+
+    const gridStatus = $('gridStatus');
+    if(gridStatus){
+      const count = list.length;
+      const searchText = searchQuery ? `за запитом «${searchQuery}»` : 'за поточним фільтром';
+      gridStatus.textContent = count
+        ? `Показано ${count} шаблон${count === 1 ? '' : 'ів'} ${searchText}.`
+        : `Нічого не знайдено ${searchText}.`;
+    }
 
     syncSelectionUI();
     initSortableTemplates();
+  }
+
+  /* Оновлює стан кнопок категорій у бічній панелі. */
+  function updateCategoryButtonStates(){
+    document.querySelectorAll('#categoryList .category-btn').forEach(btn => {
+      const cat = btn.dataset.category;
+      if(!cat) return;
+      if(cat.startsWith('__group__:')){
+        const groupName = cat.slice('__group__:'.length);
+        btn.classList.toggle('active', currentCategory === groupName || currentCategory.startsWith(groupName + '/'));
+      } else {
+        btn.classList.toggle('active', currentCategory === cat);
+      }
+    });
+  }
+
+  /* Повністю перерисовує категорії та плитки шаблонів. */
+  function renderTemplates(){
+    renderTemplateGrid();
     renderCategories();
   }
 
-  // sortable templates
+  // Ініціалізація сортування шаблонів через drag-and-drop.
   let sortableTemplates = null;
+  /* Ініціалізує drag-and-drop сортування шаблонів. */
   function initSortableTemplates(){
     const grid = $('grid');
     if(!grid) return;
@@ -763,10 +2040,17 @@ body.dark .btn.theme-toggle::before{
     }
     if(!window.Sortable) return;
     sortableTemplates = Sortable.create(grid, {
-      animation: 150,
-      draggable: '.tile:not(.pinned)',
-      handle: '.tile',
+      animation: 220,
+      easing: 'cubic-bezier(0.22,0.61,0.36,1)',
+      draggable: '.tile:not(.pinned):not(.placeholder)',
+      handle: '.tile:not(.placeholder)',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      dataIdAttr: 'data-id',
+      onStart: (evt) => { evt.item.classList.add('dragging'); },
       onEnd: (evt) => {
+        evt.item.classList.remove('dragging');
         const ids = Array.from(grid.children).map(ch => ch.dataset && ch.dataset.id ? ch.dataset.id : null).filter(Boolean);
         const pinnedItems = templates.filter(t => t.pinned);
         const unpinnedItems = templates.filter(t => !t.pinned);
@@ -788,6 +2072,7 @@ body.dark .btn.theme-toggle::before{
           }
         }
 
+        pushHistory('Переміщення шаблонів');
         templates = newTemplates;
         persist();
         renderTemplates();
@@ -795,6 +2080,7 @@ body.dark .btn.theme-toggle::before{
     });
   }
 
+  /* Закриває контекстне меню плитки. */
   function closeTileContextMenu(){
     const menu = $('tileContextMenu');
     if(menu){
@@ -804,6 +2090,7 @@ body.dark .btn.theme-toggle::before{
     }
   }
 
+  /* Відкриває контекстне меню для плитки шаблону. */
   function openTileContextMenu(ev, template){
     closeTileContextMenu();
     const menu = $('tileContextMenu');
@@ -832,7 +2119,9 @@ body.dark .btn.theme-toggle::before{
     menu.style.top = Math.max(12, y) + 'px';
   }
 
+  /* Перемикає статус улюбленого шаблону. */
   function toggleFavorite(id){
+    pushHistory('Змінено обране');
     const t = templates.find(x=>x.id===id);
     if(!t) return;
     t.favorite = !t.favorite;
@@ -840,7 +2129,9 @@ body.dark .btn.theme-toggle::before{
     renderTemplates();
   }
 
+  /* Перемикає закріплення шаблону. */
   function togglePin(id){
+    pushHistory('Змінено закріплення');
     const t = templates.find(x=>x.id===id);
     if(!t) return;
     t.pinned = !t.pinned;
@@ -852,6 +2143,7 @@ body.dark .btn.theme-toggle::before{
   document.addEventListener('scroll', () => closeTileContextMenu(), true);
 
   // copy and count (patched): no full rerender, local update + storage
+  /* Копіює текст шаблону та оновлює лічильник використання. */
   function copyAndCount(id, silent=false){
     const t = templates.find(x=>x.id===id);
     if(!t) return;
@@ -867,7 +2159,7 @@ body.dark .btn.theme-toggle::before{
         const tileEl = document.querySelector(`.tile[data-id="${id}"]`);
         if(tileEl){
           tileEl.classList.add('just-copied');
-          setTimeout(()=> tileEl.classList.remove('just-copied'), 420);
+          setTimeout(()=> tileEl.classList.remove('just-copied'), 320);
         }
 
         if(!silent) toast(`Скопійовано: «${t.title}»`);
@@ -887,7 +2179,7 @@ body.dark .btn.theme-toggle::before{
           const tileEl = document.querySelector(`.tile[data-id="${id}"]`);
           if(tileEl){
             tileEl.classList.add('just-copied');
-            setTimeout(()=> tileEl.classList.remove('just-copied'), 420);
+            setTimeout(()=> tileEl.classList.remove('just-copied'), 320);
           }
           if(!silent) toast(`Скопійовано: «${t.title}»`);
         }catch(err){
@@ -910,7 +2202,7 @@ body.dark .btn.theme-toggle::before{
         const tileEl = document.querySelector(`.tile[data-id="${id}"]`);
         if(tileEl){
           tileEl.classList.add('just-copied');
-          setTimeout(()=> tileEl.classList.remove('just-copied'), 420);
+          setTimeout(()=> tileEl.classList.remove('just-copied'), 320);
         }
         if(!silent) toast(`Скопійовано: «${t.title}»`);
       }catch(err){
@@ -919,7 +2211,8 @@ body.dark .btn.theme-toggle::before{
     }
   }
 
-  // editor
+  // Функції редактора шаблонів.
+  /* Відкриває редактор шаблону у модальному вікні. */
   function openEditor(id){
     editingId = id || null;
     $('modalEditor').classList.add('show'); $('modalEditor').setAttribute('aria-hidden','false');
@@ -932,13 +2225,16 @@ body.dark .btn.theme-toggle::before{
         $('eTags').value = (t.tags||[]).join(', ');
         $('eEmoji').value = t.emoji || '';
         $('eFavorite').checked = !!t.favorite;
+        if($('eImageUrl')) $('eImageUrl').value = (t.image && !String(t.image).startsWith('data:')) ? t.image : '';
       }
     } else {
       $('eTitle').value=''; $('eCategory').value=''; $('eText').value=''; $('eTags').value=''; $('eEmoji').value=''; $('eFavorite').checked=false;
       try{ $('eImage').value=''; }catch(e){}
+      if($('eImageUrl')) $('eImageUrl').value='';
     }
   }
 
+  /* Закриває редактор шаблону та очищає стан. */
   function closeEditor(){ $('modalEditor').classList.remove('show'); $('modalEditor').setAttribute('aria-hidden','true'); editingId = null; }
 
   async function saveTemplate(){
@@ -949,21 +2245,32 @@ body.dark .btn.theme-toggle::before{
     const emoji = $('eEmoji').value.trim();
     const favorite = !!$('eFavorite').checked;
     const file = $('eImage').files && $('eImage').files[0];
+    const imageUrl = $('eImageUrl') ? $('eImageUrl').value.trim() : '';
     if(!title && !text){ alert('Потрібні назва або текст'); return; }
     let imageData = '';
-    if(file) imageData = await fileToDataURL(file);
+    let imageName = '';
+    if(file){
+      imageData = await fileToDataURL(file);
+      imageName = file.name;
+    } else if(imageUrl){
+      imageData = imageUrl;
+      imageName = imageUrl.split('/').pop() || '';
+    }
+    pushHistory(editingId ? 'Редагування шаблону' : 'Додавання шаблону');
     if(editingId){
-      templates = templates.map(t => t.id===editingId ? Object.assign({}, t, { title, category, text, tags, emoji, favorite, image: imageData || t.image, updatedAt: Date.now() }) : t);
+      templates = templates.map(t => t.id===editingId ? Object.assign({}, t, { title, category, text, tags, emoji, favorite, image: imageData || t.image, imageName: imageName || t.imageName || t.image, updatedAt: Date.now() }) : t);
     } else {
-      templates.unshift(ensureShape({ title, category, text, tags, emoji, image: imageData, favorite }));
+      templates.unshift(ensureShape({ title, category, text, tags, emoji, image: imageData, imageName, favorite }));
     }
     if(!categoryOrder.includes(category)) categoryOrder.push(category);
     persist(); renderTemplates(); closeEditor();
   }
 
+  /* Видаляє поточний шаблон, що редагується. */
   function deleteCurrentTemplate(){
     if(!editingId) return;
     if(!confirm('Видалити шаблон?')) return;
+    pushHistory('Видалення шаблону');
     const idx = templates.findIndex(t=>t.id===editingId);
     if(idx===-1) return;
     const removed = templates.splice(idx,1)[0];
@@ -972,6 +2279,7 @@ body.dark .btn.theme-toggle::before{
     persist(); renderTemplates(); closeEditor(); showUndoBar();
   }
 
+  /* Конвертує файл у data URL для збереження зображення. */
   function fileToDataURL(file){
     return new Promise((resolve)=>{
       const reader = new FileReader();
@@ -981,10 +2289,12 @@ body.dark .btn.theme-toggle::before{
     });
   }
 
-  // delete selected
+  // Видалення вибраних шаблонів у режимі редагування.
+  /* Видаляє всі обрані шаблони з набору. */
   function deleteSelected(){
     if(window.selectedTiles.length === 0){ alert('Виберіть шаблони'); return; }
     if(!confirm(`Видалити ${window.selectedTiles.length} шаблон(ів)?`)) return;
+    pushHistory('Видалення кількох шаблонів');
     const deleted = templates.filter(t => window.selectedTiles.includes(t.id));
     templates = templates.filter(t => !window.selectedTiles.includes(t.id));
     undoStack = deleted.slice();
@@ -995,12 +2305,14 @@ body.dark .btn.theme-toggle::before{
     showUndoBar();
   }
 
-  // undo
+  // скасування
+  /* Запускає таймер для панелі відкату. */
   function startUndoTimer(){
     if(undoTimer) clearTimeout(undoTimer);
     undoTimer = setTimeout(()=>{ undoStack = []; hideUndoBar(); undoTimer = null; }, UNDO_TIMEOUT_MS);
   }
 
+  /* Відновлює останнє видалення шаблонів. */
   function undoDelete(){
     if(!undoStack.length) return;
     templates = [...undoStack.map(ensureShape), ...templates];
@@ -1013,6 +2325,7 @@ body.dark .btn.theme-toggle::before{
     toast('Відновлено шаблони');
   }
 
+  /* Показує панель скасування дії. */
   function showUndoBar(){
     hideUndoBar();
     const bar = document.createElement('div');
@@ -1025,17 +2338,21 @@ body.dark .btn.theme-toggle::before{
     bar.appendChild(btn); bar.appendChild(btnClose);
     document.body.appendChild(bar);
   }
+  /* Ховає панель скасування. */
   function hideUndoBar(){ const b = $('__undoBar'); if(b) b.remove(); }
 
-  // IMPORT PREVIEW LOGIC
+  // Логіка попереднього перегляду імпорту даних.
   let previewRowsData = [];
   let currentPreviewSource = null;
   let currentPreviewMapping = null;
   let previewFileName = '';
 
-  function showImportModal(){ $('modalImport').classList.add('show'); $('modalImport').setAttribute('aria-hidden','false'); }
+  /* Відкриває модальне вікно імпорту даних. */
+  function showImportModal(){ const csv = $('gsCsvLink'); if(csv && !csv.value.trim()){ csv.value = DEFAULT_CSV_IMPORT_URL; } $('modalImport').classList.add('show'); $('modalImport').setAttribute('aria-hidden','false'); }
+  /* Закриває модальне імпортне вікно. */
   function hideImportModal(){ $('modalImport').classList.remove('show'); $('modalImport').setAttribute('aria-hidden','true'); resetPreview(); }
 
+  /* Скидає стан попереднього перегляду файлу. */
   function resetPreview(){
     previewRowsData = [];
     currentPreviewSource = null;
@@ -1047,6 +2364,7 @@ body.dark .btn.theme-toggle::before{
     $('importStatus').textContent = '';
   }
 
+  /* Рендерить таблицю попереднього перегляду імпортованих даних. */
   function renderPreviewTable(rows, mapping){
     const table = $('previewTable');
     table.innerHTML = '';
@@ -1077,6 +2395,7 @@ body.dark .btn.theme-toggle::before{
     $('previewCount').textContent = previewCount;
   }
 
+  /* Створює елементи для мапінгу колонок CSV до полів шаблону. */
   function buildMappingControls(cols){
     const wrap = $('mappingControls');
     wrap.innerHTML = '';
@@ -1121,22 +2440,50 @@ body.dark .btn.theme-toggle::before{
     });
   }
 
+  /* Автоматично визначає мапінг на основі заголовку. */
   function detectMappingFromHeader(headerRow){
     const map = {category:-1,title:-1,text:-1,tags:-1,emoji:-1,image:-1};
+    if(!Array.isArray(headerRow)) return map;
     headerRow.forEach((cell, idx) => {
       if(!cell) return;
-      const v = String(cell).toLowerCase();
-      if(v.includes('title') || v.includes('name')) map.title = idx;
-      if(v.includes('category') || v.includes('sheet') || v.includes('group')) map.category = idx;
-      if(v.includes('text') || v.includes('content') || v.includes('body')) map.text = idx;
-      if(v.includes('tag')) map.tags = idx;
-      if(v.includes('emoji')) map.emoji = idx;
-      if(v.includes('image') || v.includes('url') || v.includes('img')) map.image = idx;
+      const v = String(cell).toLowerCase().trim();
+      const isImageName = /\b(image[_ ]?name|filename|file[_ ]?name|imagename)\b/.test(v);
+      const isTitle = /\b(title|^name$|subject|headline|heading)\b/.test(v) && !isImageName;
+      const isCategory = /\b(category|sheet|group|bucket|folder)\b/.test(v);
+      const isText = /\b(text|content|body|message|description|note)\b/.test(v);
+      const isTags = /\b(tag|label)\b/.test(v);
+      const isEmoji = /\b(emoji|emoticon|smile|icon)\b/.test(v);
+      const isImage = /\b(image|img|url|src|picture|photo)\b/.test(v) && !isImageName;
+      if(isTitle) map.title = idx;
+      if(isCategory) map.category = idx;
+      if(isText) map.text = idx;
+      if(isTags) map.tags = idx;
+      if(isEmoji) map.emoji = idx;
+      if(isImage) map.image = idx;
     });
     return map;
   }
 
-  // Confirm import handler
+  function findImageNameColumn(headerRow){
+    if(!Array.isArray(headerRow)) return -1;
+    for(let i=0;i<headerRow.length;i++){
+      const cell = headerRow[i];
+      if(!cell) continue;
+      const v = String(cell).toLowerCase();
+      if(v.includes('image name') || v.includes('image_name') || v.includes('filename') || v.includes('file name') || v.includes('file_name')) return i;
+    }
+    return -1;
+  }
+
+  function isHeaderRow(row){
+    if(!Array.isArray(row) || row.length < 3) return false;
+    const text = row.join(' ').toLowerCase();
+    const headers = ['title','text','category','tags','emoji','image'];
+    return headers.filter(h => text.includes(h)).length >= 2;
+  }
+
+  // Обробник підтвердження імпорту.
+  /* Обробляє підсумкове підтвердження імпорту. */
   function confirmImportHandler(){
     try{
       if(!previewRowsData || !previewRowsData.length){ alert('Немає даних для імпорту'); return; }
@@ -1148,9 +2495,12 @@ body.dark .btn.theme-toggle::before{
 
       if(mapping.title < 0 && mapping.text < 0){ alert('Потрібно вказати колонку для Title або Text'); return; }
 
+      const headerRow = previewRowsData[0] || [];
+      const skipHeader = isHeaderRow(headerRow);
+      const imageNameIndex = findImageNameColumn(headerRow);
       const rows = previewRowsData.slice(0, Math.min(previewRowsData.length, 1000));
       const imported = [];
-      for(let r = 0; r < rows.length; r++){
+      for(let r = skipHeader ? 1 : 0; r < rows.length; r++){
         const row = rows[r] || [];
         const title = mapping.title >=0 ? String(row[mapping.title]||'').trim() : '';
         const category = mapping.category >=0 ? String(row[mapping.category]||'').trim() : 'Без категорії';
@@ -1158,25 +2508,17 @@ body.dark .btn.theme-toggle::before{
         const tagsRaw = mapping.tags >=0 ? String(row[mapping.tags]||'').trim() : '';
         const emoji = mapping.emoji >=0 ? String(row[mapping.emoji]||'').trim() : '';
         const image = mapping.image >=0 ? String(row[mapping.image]||'').trim() : '';
+        const imageName = imageNameIndex >=0 ? String(row[imageNameIndex]||'').trim() : '';
         if(!title && !text) continue;
         const tags = tagsRaw ? tagsRaw.split(/[,;]+/).map(t=>t.trim()).filter(Boolean) : [];
-        imported.push({ title, category: category || 'Без категорії', text: autoFix(text), tags, emoji, image });
+        imported.push({ title, category: category || 'Без категорії', text: autoFix(text), tags, emoji, image, imageName });
       }
 
-      let added = 0;
-      imported.forEach(t => {
-        const shaped = ensureShape(t);
-        const exists = templates.some(existing => existing.title === shaped.title && existing.text === shaped.text && existing.category === shaped.category);
-        if(!exists){
-          templates.push(shaped);
-          if(!categoryOrder.includes(shaped.category)) categoryOrder.push(shaped.category);
-          added++;
-        }
-      });
-
-      persist();
-      renderTemplates();
-      toast(`Імпортовано ${added} шаблон(ів)`);
+      const result = mergeImportedTemplates(imported);
+      const message = importSummaryMessage(result);
+      $('importStatus').textContent = message;
+      toast(`Імпорт: ${message}`);
+      clearUpdateNotice();
       hideImportModal();
     }catch(err){
       console.error('confirmImportHandler error', err);
@@ -1185,6 +2527,7 @@ body.dark .btn.theme-toggle::before{
   }
 
   // showPreviewUI binds confirmImportHandler each time to ensure it is active
+  /* Показує інтерфейс попереднього перегляду імпортованих даних. */
   function showPreviewUI(){
     const rows = previewRowsData || [];
     const cols = Math.max(1, ...rows.map(r => r.length));
@@ -1203,7 +2546,7 @@ body.dark .btn.theme-toggle::before{
     }
   }
 
-  // parse XLSX and show preview
+  // Обробка XLSX та показ попереднього перегляду.
   safeOn($('btnLoadFilePreview'), 'click', ()=>{
     const f = $('importFile')?.files?.[0];
     if(!f){ alert('Виберіть файл'); return; }
@@ -1219,7 +2562,7 @@ body.dark .btn.theme-toggle::before{
             const rows = [];
             const keys = Object.keys(parsed[0] || {});
             rows.push(keys);
-            parsed.slice(0,50).forEach(obj => {
+            parsed.slice(0,1000).forEach(obj => {
               rows.push(keys.map(k=>obj[k]||''));
             });
             previewRowsData = rows;
@@ -1247,10 +2590,12 @@ body.dark .btn.theme-toggle::before{
     reader.readAsArrayBuffer(f);
   });
 
-  // parse CSV link preview
+  // Обробка CSV-посилання для попереднього перегляду.
   safeOn($('btnLoadCsvPreview'), 'click', async ()=>{
-    const url = $('gsCsvLink').value.trim();
+    const urlInput = $('gsCsvLink').value.trim();
+    const url = urlInput || DEFAULT_CSV_IMPORT_URL;
     if(!url){ alert('Вставте CSV link'); return; }
+    $('gsCsvLink').value = url;
     try{
       const res = await fetch(url);
       if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -1268,7 +2613,7 @@ body.dark .btn.theme-toggle::before{
     }catch(err){ console.error(err); alert('Помилка завантаження CSV'); }
   });
 
-  // CSV direct import helper
+  // Допоміжна функція прямого імпорту CSV.
   async function importCsvLinkDirect(url){
     if(!url) return;
     try{
@@ -1293,33 +2638,66 @@ body.dark .btn.theme-toggle::before{
         const tags = tagsRaw ? tagsRaw.split(/[,;]+/).map(t=>t.trim()).filter(Boolean) : [];
         mapped.push({ title, category, text: autoFix(text), tags, emoji, image });
       }
-      const shaped = mapped.map(m => ensureShape(m));
-      templates = [...shaped, ...templates];
-      shaped.forEach(s=>{ if(s.category && !categoryOrder.includes(s.category)) categoryOrder.push(s.category); });
-      persist(); renderTemplates(); toast('CSV імпортовано (Google Sheets мапінг)');
+      const result = mergeImportedTemplates(mapped);
+      $('importStatus').textContent = importSummaryMessage(result);
+      clearUpdateNotice();
+      toast(`CSV імпортовано: ${importSummaryMessage(result)}`);
     }catch(err){ console.error(err); alert('Помилка імпорту CSV'); }
   }
 
-  // import modal bindings
+  // Прив’язки подій модального вікна імпорту.
   safeOn($('btnImportExport'), 'click', ()=>{ showImportModal(); });
+  safeOn($('btnImportClose'), 'click', ()=>{ hideImportModal(); });
   safeOn($('btnLoadFilePreview'), 'click', ()=>{ /* handled above */ });
   safeOn($('btnLoadCsvPreview'), 'click', ()=>{ /* handled above */ });
+  safeOn($('btnAutoImport'), 'click', ()=>{
+    const url = $('gsCsvLink').value.trim() || DEFAULT_CSV_IMPORT_URL;
+    $('gsCsvLink').value = url;
+    clearUpdateNotice();
+    importCsvLinkDirect(url);
+  });
+  ensureUpdateNoticeBinding();
+  scheduleGoogleSheetUpdateCheck();
 
-  // background handlers inside settings modal
+  // Обробники фону у налаштуваннях.
   safeOn($('bgClear'), 'click', ()=>{ $('mainArea').style.backgroundImage=''; localStorage.removeItem(BG_KEY); $('bgStatus').textContent='Очищено'; setTimeout(()=>$('bgStatus').textContent='',800); });
   safeOn($('bgApply'), 'click', ()=>{ const f = $('bgFile'); if(!f||!f.files||!f.files[0]){ $('bgStatus').textContent='Виберіть файл'; return; } const r = new FileReader(); r.onload = e => { const src = e.target.result; $('mainArea').style.backgroundImage = `url(${src})`; localStorage.setItem(BG_KEY, src); $('bgStatus').textContent='Застосовано'; setTimeout(()=>{ $('bgStatus').textContent=''; },1200); }; r.readAsDataURL(f.files[0]); });
 
-  function showSettingsModal(){ const modal = $('modalSettings'); if(modal){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); } }
-  function hideSettingsModal(){ const modal = $('modalSettings'); if(modal){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); } }
+  /* Додає візуальний ripple-ефект при кліку по кнопці. */
+  function createButtonRipple(button, e){
+    if(!button) return;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    const rect = button.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = ((e?.clientX || rect.left + rect.width / 2) - rect.left - size / 2) + 'px';
+    ripple.style.top = ((e?.clientY || rect.top + rect.height / 2) - rect.top - size / 2) + 'px';
+    button.appendChild(ripple);
+    setTimeout(()=> ripple.remove(), 600);
+  }
 
-  // editor bindings
+  /* Відкриває модальне вікно налаштувань. */
+  function showSettingsModal(){ const modal = $('modalSettings'); if(modal){ modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); } }
+  /* Закриває модальне вікно налаштувань. */
+  function hideSettingsModal(){ const modal = $('modalSettings'); if(modal){ modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); } const btn = $('btnSettings'); if(btn){ btn.classList.remove('active'); } }
+  /* Відкриває налаштування з ефектом анімації та ripple. */
+  function openSettingsWithEffects(e){
+    const btn = $('btnSettings');
+    createButtonRipple(btn, e);
+    if(btn){ btn.classList.add('active'); }
+    showSettingsModal();
+  }
+  window.openSettingsWithEffects = openSettingsWithEffects;
+
+  // Прив’язки подій модального редактора.
   safeOn($('btnAdd'), 'click', ()=> openEditor(null));
-  safeOn($('eClose'), 'click', ()=> closeEditor());
+  safeOn($('btnCloseEditor'), 'click', ()=> closeEditor());
   safeOn($('eSave'), 'click', ()=> saveTemplate());
   safeOn($('eDelete'), 'click', ()=> { if(confirm('Ви впевнені?')) deleteCurrentTemplate(); });
 
-  // selection & other bindings
-  safeOn($('btnSettings'), 'click', showSettingsModal);
+  // Прив’язки подій вибору та інших дій.
+  safeOn($('btnSettings'), 'click', openSettingsWithEffects);
   safeOn($('btnCloseSettings'), 'click', hideSettingsModal);
   safeOn($('btnEditMode'), 'click', ()=> { editMode = !editMode; $('btnEditMode').classList.toggle('active', editMode); if(!editMode) clearSelection(); syncSelectionUI(); });
   safeOn($('btnSelectAll'), 'click', ()=> selectAllVisible());
@@ -1327,85 +2705,303 @@ body.dark .btn.theme-toggle::before{
   safeOn($('btnDeleteSelected'), 'click', ()=> deleteSelected());
   safeOn($('btnEditSelected'), 'click', ()=> { if(window.selectedTiles.length !== 1){ alert('Виберіть один шаблон'); return; } openEditor(window.selectedTiles[0]); });
 
-  // export (reads from localStorage to include all templates and base64 images)
-  safeOn($('btnExportJson'), 'click', ()=>{ try{ const all = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); const data = JSON.stringify(all,null,2); const blob = new Blob([data],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='templates.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),1000); }catch(err){ console.error('Export error', err); alert('Не вдалося експортувати JSON'); } });
+  // Експорт: зберігає весь стан у один JSON-файл із метаданими та профілем.
+  safeOn($('btnExportJson'), 'click', ()=>{
+    try{
+      const payload = {
+        meta: {
+          exportedAt: new Date().toISOString(),
+          source: 'SnapReply',
+          version: '1.0'
+        },
+        account: accountUser || null,
+        state: getAccountStatePayload()
+      };
+      const data = JSON.stringify(payload, null, 2);
+      const blob = new Blob([data],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'snapreply-backup.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(err){
+      console.error('Export error', err);
+      alert('Не вдалося експортувати JSON');
+    }
+  });
 
-  // search
-  safeOn($('search'), 'input', ()=> { clearSelection(); renderTemplates(); });
+  // Пошук шаблонів.
+  safeOn($('search'), 'input', ()=> {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(()=>{
+      clearSelection();
+      renderTemplates();
+    }, 140);
+  });
 
-  // keyboard quick copy handled by hotkeys module below
+  // Швидке копіювання клавіш 1-0 обробляється модулем гарячих клавіш нижче.
 
-  // storage sync
-  window.addEventListener('storage', (e)=>{ if(e.key === STORAGE_KEY){ try{ const parsed = JSON.parse(e.newValue); if(Array.isArray(parsed)){ templates = parsed.map(ensureShape); renderTemplates(); } }catch(err){ console.warn(err); } } if(e.key === CATEGORY_ORDER_KEY){ try{ const parsed = JSON.parse(e.newValue); if(Array.isArray(parsed)){ categoryOrder = parsed; renderCategories(); } }catch(err){ console.warn(err); } } if(e.key === BG_KEY){ const bg = localStorage.getItem(BG_KEY); $('mainArea').style.backgroundImage = bg ? `url(${bg})` : ''; } });
+  // Синхронізація збереження.
+  window.addEventListener('storage', (e) => {
+    if(e.key === STORAGE_KEY){
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if(Array.isArray(parsed)){
+          templates = parsed.map(ensureShape);
+          renderTemplates();
+        }
+      } catch(err){
+        console.warn(err);
+      }
+    }
 
-  // render categories
+    if(e.key === CATEGORY_ORDER_KEY){
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if(Array.isArray(parsed)){
+          categoryOrder = parsed;
+          renderCategories();
+        }
+      } catch(err){
+        console.warn(err);
+      }
+    }
+
+    if(e.key === BG_KEY){
+      const bg = localStorage.getItem(BG_KEY);
+      $('mainArea').style.backgroundImage = bg ? `url(${bg})` : '';
+    }
+  });
+
+  // Допоміжна функція оновлення логотипу.
+  /* Оновлює логотип залежно від теми. */
+  function updateLogo(){
+    const isDark = document.body.classList.contains('dark');
+    const logo = document.getElementById('logo');
+    if(!logo) return;
+    logo.src = isDark ? 'dark_theme.png' : 'light_theme.png';
+  }
+
+  /* Встановлює початкове представлення дочірніх категорій. */
+  function setInitialCategoryChildren(children){
+    children.forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(-12px)';
+      el.style.transitionDelay = '0s';
+    });
+  }
+
+  /* Анімує відкриття дочірніх категорій. */
+  function animateCategoryChildrenIn(children, delay){
+    children.forEach((el, i) => {
+      el.style.transitionDelay = `${i * delay}s`;
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
+  }
+
+  /* Анімує закриття дочірніх категорій. */
+  function animateCategoryChildrenOut(children){
+    children.forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(-8px)';
+      el.style.transitionDelay = '0s';
+    });
+  }
+
+  /* Відкриває групу категорій і починає анімацію. */
+  function openCategoryGroup(group, wrap){
+    const children = wrap.querySelectorAll('.category-child');
+    setInitialCategoryChildren(children);
+    const delay = Math.max(0.008, Math.min(0.03, 0.14 / Math.max(children.length, 1)));
+
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        group.classList.add('open');
+        wrap.style.height = wrap.scrollHeight + 'px';
+
+        requestAnimationFrame(()=>{
+          animateCategoryChildrenIn(children, delay);
+        });
+      });
+    });
+
+    /* Функція onTransitionEnd: реалізує відповідну логіку. */
+    function onTransitionEnd(event){
+      if(event.propertyName === 'height'){
+        wrap.style.height = 'auto';
+        wrap.removeEventListener('transitionend', onTransitionEnd);
+      }
+    }
+
+    wrap.addEventListener('transitionend', onTransitionEnd);
+  }
+
+  /* Закриває конкретну групу категорій. */
+  function closeCategoryGroup(group, wrap){
+    const children = wrap.querySelectorAll('.category-child');
+    animateCategoryChildrenOut(children);
+
+    if(!wrap.style.height || wrap.style.height === 'auto'){
+      wrap.style.height = wrap.scrollHeight + 'px';
+    }
+
+    requestAnimationFrame(()=>{
+      wrap.style.height = '0px';
+    });
+
+    group.classList.remove('open');
+  }
+
+  /* Закриває всі групи категорій, окрім однієї. */
+  function closeAllCategoryGroups(exceptGroup){
+    document.querySelectorAll('#categoryList .category-group.open').forEach(el => {
+      if(el === exceptGroup) return;
+      const wrap = el.querySelector('.category-child-wrap');
+      if(wrap) closeCategoryGroup(el, wrap);
+    });
+  }
+
+  // Рендер категорій у бічній панелі.
+  /* Рендерить список категорій у бічній панелі. */
   function renderCategories(){
     const wrap = $('categoryList');
     if(!wrap) return;
-    const allCats = Array.from(new Set(templates.map(t=>t.category)));
+    const allCats = Array.from(new Set(templates.map(t=>t.category))).sort((a,b)=>a.localeCompare(b,'uk',{sensitivity:'base',numeric:true}));
+    const GROUP_KEY = '__group__:';
     allCats.forEach(c => { if(!categoryOrder.includes(c)) categoryOrder.push(c); });
-    categoryOrder = categoryOrder.filter(c => allCats.includes(c));
-    wrap.innerHTML = '';
+    categoryOrder = categoryOrder.filter(c => allCats.includes(c) || c.startsWith(GROUP_KEY));
 
-    const base = ['Усі','📌 Обране'];
-    base.forEach(b=>{
-      const btn = document.createElement('button');
-      btn.className = 'category-btn' + (b===currentCategory ? ' active' : '');
-      btn.textContent = b;
-      btn.onclick = ()=>{ currentCategory = b; clearSelection(); renderTemplates(); };
-      wrap.appendChild(btn);
+    const parentOrder = [];
+    categoryOrder.forEach(cat => {
+      const parent = cat.startsWith(GROUP_KEY) ? cat.slice(GROUP_KEY.length) : cat.split('/')[0].trim();
+      if(parent && !parentOrder.includes(parent)) parentOrder.push(parent);
+    });
+    allCats.forEach(cat => {
+      const parent = cat.split('/')[0].trim();
+      if(parent && !parentOrder.includes(parent)) parentOrder.push(parent);
     });
 
+    wrap.innerHTML = '';
+
     const nested = {};
-    categoryOrder.forEach(cat => {
+    allCats.forEach(cat => {
       const parts = cat.split('/').map(s => s.trim()).filter(Boolean);
       if(parts.length === 0) return;
       const parent = parts[0];
       const child = parts.slice(1).join('/');
-      if(!nested[parent]) nested[parent] = new Set();
-      if(child) nested[parent].add(child);
-      if(!child) nested[parent].add('');
+      if(!nested[parent]) nested[parent] = { children: new Set(), hasSelf: false };
+      if(child) nested[parent].children.add(child);
+      else nested[parent].hasSelf = true;
     });
 
-    Object.keys(nested).forEach(parent => {
-      if(currentCategory.startsWith(parent + '/')) openCategories.add(parent);
+    parentOrder.forEach(parent => {
+      const groupInfo = nested[parent];
+      if(!groupInfo) return;
+      const children = Array.from(groupInfo.children).sort((a,b)=>a.localeCompare(b,'uk',{sensitivity:'base',numeric:true}));
+      const hasChildren = children.length > 0;
+      const isOpen = openCategories.has(parent) || currentCategory.startsWith(parent + '/');
+
+      if(!hasChildren){
+        const leafGroup = document.createElement('div');
+        leafGroup.className = 'category-group leaf-group';
+        const leafBtn = document.createElement('button');
+        leafBtn.className = 'category-btn leaf-btn' + (parent===currentCategory ? ' active' : '');
+        leafBtn.textContent = parent;
+        leafBtn.dataset.category = parent;
+        leafBtn.onclick = ()=>{
+          closeAllCategoryGroups();
+          openCategories.clear();
+          currentCategory = parent;
+          clearSelection();
+          renderTemplateGrid();
+          updateCategoryButtonStates();
+          if(categoryRefreshTimeout) clearTimeout(categoryRefreshTimeout);
+          categoryRefreshTimeout = setTimeout(()=>{
+            renderCategories();
+            categoryRefreshTimeout = null;
+          }, 260);
+        };
+        leafGroup.appendChild(leafBtn);
+        wrap.appendChild(leafGroup);
+        return;
+      }
+
+      if(isOpen) openCategories.add(parent);
       const group = document.createElement('div');
-      group.className = 'category-group';
-      if(openCategories.has(parent)) group.classList.add('open');
+      group.className = 'category-group' + (isOpen ? ' open' : '');
 
       const parentBtn = document.createElement('button');
-      parentBtn.className = 'category-btn' + (parent===currentCategory ? ' active' : '');
+      parentBtn.type = 'button';
+      parentBtn.className = 'category-btn group-toggle' + ((parent===currentCategory || currentCategory.startsWith(parent + '/')) ? ' active' : '');
+      parentBtn.setAttribute('aria-expanded', String(isOpen));
+      parentBtn.setAttribute('aria-pressed', String(parent===currentCategory || currentCategory.startsWith(parent + '/')));
       parentBtn.textContent = parent;
+      parentBtn.dataset.category = GROUP_KEY + parent;
       parentBtn.onclick = ()=>{
-        if(openCategories.has(parent)){
+        const wasOpen = group.classList.contains('open');
+        if(wasOpen){
+          closeCategoryGroup(group, childWrap);
           openCategories.delete(parent);
         } else {
+          closeAllCategoryGroups(group);
+          openCategoryGroup(group, childWrap);
           openCategories.clear();
           openCategories.add(parent);
         }
         currentCategory = parent;
         clearSelection();
-        renderTemplates();
+        renderTemplateGrid();
+        updateCategoryButtonStates();
+        if(categoryRefreshTimeout) clearTimeout(categoryRefreshTimeout);
+        categoryRefreshTimeout = setTimeout(()=>{
+          renderCategories();
+          categoryRefreshTimeout = null;
+        }, wasOpen ? 320 : 360);
       };
       group.appendChild(parentBtn);
 
       const childWrap = document.createElement('div');
       childWrap.className = 'category-child-wrap';
-      if(openCategories.has(parent)) childWrap.style.maxHeight = '400px';
+      if(isOpen){
+        childWrap.style.height = 'auto';
+      }
+      const childDelay = Math.max(0.008, Math.min(0.03, 0.14 / Math.max(children.length, 1)));
 
-      const children = Array.from(nested[parent]).filter(c => c).sort();
-      children.forEach(child => {
+      children.forEach((child, index) => {
         const fullName = parent + '/' + child;
+        const childItem = document.createElement('div');
+        childItem.className = 'category-child';
+        if(isOpen){
+          childItem.style.opacity = '1';
+          childItem.style.transform = 'translateY(0)';
+        }
+
         const childBtn = document.createElement('button');
-        childBtn.className = 'category-btn' + (fullName===currentCategory ? ' active' : '');
+        childBtn.type = 'button';
+        childBtn.className = 'category-btn child-btn' + (fullName===currentCategory ? ' active' : '');
+        childBtn.setAttribute('aria-pressed', String(fullName===currentCategory));
         childBtn.textContent = '• ' + child;
+        childBtn.dataset.category = fullName;
         childBtn.onclick = ()=>{
+          openCategories.clear();
           openCategories.add(parent);
           currentCategory = fullName;
           clearSelection();
-          renderTemplates();
+          renderTemplateGrid();
+          updateCategoryButtonStates();
+          if(categoryRefreshTimeout) clearTimeout(categoryRefreshTimeout);
+          categoryRefreshTimeout = setTimeout(()=>{
+            renderCategories();
+            categoryRefreshTimeout = null;
+          }, 220);
         };
-        childWrap.appendChild(childBtn);
+
+        childItem.appendChild(childBtn);
+        childWrap.appendChild(childItem);
       });
 
       group.appendChild(childWrap);
@@ -1414,57 +3010,375 @@ body.dark .btn.theme-toggle::before{
 
     if(window.Sortable){
       try{ if(window._sortableCats) window._sortableCats.destroy(); }catch(e){}
+      /* Збирає новий порядок категорій після сортування. */
+      function collectCategoryOrder(){
+        return Array.from(wrap.querySelectorAll(':scope > .category-group'))
+          .map(node => {
+            const btn = node.querySelector(':scope > .category-btn.group-toggle, :scope > .category-btn.leaf-btn');
+            return btn ? btn.dataset.category : null;
+          })
+          .filter(Boolean);
+      }
+
+      /* Зберігає порядок категорій у localStorage. */
+      function saveCategoryOrder(order){
+        if(!Array.isArray(order)) return;
+        categoryOrder = order;
+        persist();
+        requestAnimationFrame(() => renderCategories());
+      }
+
       window._sortableCats = Sortable.create(wrap, {
         animation: 150,
-        handle: '.category-btn',
-        onEnd: function(){
-          const items = Array.from(wrap.querySelectorAll('.category-btn')).map(b=>b.textContent).filter(t=>t!=='Усі' && t!=='📌 Обране');
-          categoryOrder = items;
-          persist();
+        draggable: '.category-group',
+        handle: '.category-btn.group-toggle, .category-btn.leaf-btn',
+        onEnd: function(evt){
+          if(evt.oldIndex === evt.newIndex) return;
+          saveCategoryOrder(collectCategoryOrder());
         }
       });
     }
   }
 
-  // init
+  // Головна ініціалізація додатку.
+  /* Ініціалізує додаток і прив’язує базові події. */
   function init(){
     const savedTheme = localStorage.getItem(THEME_KEY) || 'light';
-    if(savedTheme === 'dark') document.body.classList.add('dark'); else document.body.classList.remove('dark');
+    const btnTheme = $('btnTheme');
+    if(savedTheme === 'dark'){
+      document.body.classList.add('dark');
+      document.body.classList.remove('light');
+    } else {
+      document.body.classList.remove('dark');
+      document.body.classList.add('light');
+    }
+    if(btnTheme) btnTheme.classList.add('active');
     updateLogo();
-    safeOn($('btnTheme'), 'click', ()=> {
-      const isDark = document.body.classList.toggle('dark');
-      localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
-      updateLogo();
-    });
+    if(btnTheme){
+      safeOn(btnTheme, 'click', (e)=>{
+        createButtonRipple(btnTheme, e);
+        const isDark = document.body.classList.toggle('dark');
+        document.body.classList.toggle('light', !isDark);
+        localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+        updateLogo();
+      });
+    }
 
     const zoomRange = $('zoomRange');
     const zoomValue = $('zoomValue');
+    const animationMode = $('animationMode');
+    const gridMode = $('gridMode');
+    const btnUndo = $('btnUndo');
+    const btnRedo = $('btnRedo');
     if(zoomRange){
-      const base = 220;
+      const base = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 220;
       const saved = localStorage.getItem(UI_TILE_KEY);
       if(saved) zoomRange.value = (parseInt(saved)/base).toFixed(2);
       else zoomRange.value = 1;
+      document.documentElement.style.setProperty('--zoom-scale', parseFloat(zoomRange.value).toFixed(3));
       if(zoomValue) zoomValue.textContent = Math.round(parseFloat(zoomRange.value) * 100) + '%';
-      zoomRange.addEventListener('input', (e)=>{ const base=220; let w=Math.round(base * parseFloat(e.target.value)); const min=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile-min'))||160; const max=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile-max'))||360; if(w<min) w=min; if(w>max) w=max; document.documentElement.style.setProperty('--tile', w+'px'); localStorage.setItem(UI_TILE_KEY, String(w)); if(zoomValue) zoomValue.textContent = Math.round(parseFloat(e.target.value) * 100) + '%'; setTimeout(()=>renderTemplates(),120); });
+      zoomRange.addEventListener('input', (e)=>{ const base=220; let w=Math.round(base * parseFloat(e.target.value)); const min=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile-min'))||160; const max=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile-max'))||360; if(w<min) w=min; if(w>max) w=max; document.documentElement.style.setProperty('--tile', w+'px'); document.documentElement.style.setProperty('--zoom-scale', parseFloat(e.target.value).toFixed(3)); localStorage.setItem(UI_TILE_KEY, String(w)); if(zoomValue) zoomValue.textContent = Math.round(parseFloat(e.target.value) * 100) + '%'; setTimeout(()=>renderTemplates(),120); });
     }
+    if(animationMode){
+      animationMode.value = motionModePreference;
+      safeOn(animationMode, 'change', (e)=>{
+        motionModePreference = e.target.value;
+        localStorage.setItem(MOTION_MODE_KEY, motionModePreference);
+        applyMotionMode(motionModePreference);
+        renderTemplates();
+      });
+    }
+    if(gridMode){
+      gridMode.value = gridDisplayMode;
+      safeOn(gridMode, 'change', (e)=>{
+        gridDisplayMode = e.target.value;
+        localStorage.setItem(GRID_MODE_KEY, gridDisplayMode);
+        renderTemplates();
+      });
+    }
+
+    const btnGoogleSignIn = $('btnGoogleSignIn');
+    const btnGoogleSignOut = $('btnGoogleSignOut');
+    if(btnGoogleSignIn) safeOn(btnGoogleSignIn, 'click', (e)=>{
+      e.preventDefault();
+      if(window.google && window.google.accounts && window.google.accounts.id){
+        google.accounts.id.prompt();
+        return;
+      }
+      const gsiScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if(gsiScript){
+        initGoogleAccount();
+        if(window.google && window.google.accounts && window.google.accounts.id){
+          google.accounts.id.prompt();
+          return;
+        }
+      }
+      alert('Google sign-in недоступний або не завантажено. Спробуйте оновити сторінку або перевірити підключення до інтернету.');
+    });
+    if(btnGoogleSignOut) safeOn(btnGoogleSignOut, 'click', ()=> signOutGoogle());
+    if(btnUndo) safeOn(btnUndo, 'click', ()=> undoAction());
+    if(btnRedo) safeOn(btnRedo, 'click', ()=> redoAction());
+
+    const categorySearch = $('categorySearch');
+    const categorySearchWrap = $('categorySearchWrap');
+    const sidebarActions = document.querySelector('.sidebar-actions');
+    const btnCatSearch = $('btnCatSearch');
+    const btnCatAll = $('btnCatAll');
+    const btnCatFav = $('btnCatFav');
+    const searchInput = $('search');
+    const searchToggleBtn = $('btnSearchToggle');
+    const clearSearchBtn = $('clearSearch');
+    const mainSearchWrap = $('mainSearchWrap');
+
+    /* Фільтрує кнопки категорій за введеним текстом. */
+    function filterCategoryButtons(query){
+      const q = String(query || '').trim().toLowerCase();
+      document.querySelectorAll('#categoryList .category-group').forEach(group => {
+        const parentBtn = group.querySelector('.category-btn');
+        const childWrap = group.querySelector('.category-child-wrap');
+        const childBtns = childWrap ? Array.from(childWrap.querySelectorAll('.category-btn')) : [];
+        const parentMatches = parentBtn && parentBtn.textContent.toLowerCase().includes(q);
+        let anyChildMatches = false;
+
+        childBtns.forEach(btn => {
+          const match = q && btn.textContent.toLowerCase().includes(q);
+          btn.style.display = q && !match ? 'none' : '';
+          if(match) anyChildMatches = true;
+        });
+
+        const showGroup = !q || parentMatches || anyChildMatches;
+        group.style.display = showGroup ? '' : 'none';
+
+        if(childWrap){
+          group.classList.toggle('open', q && (parentMatches || anyChildMatches));
+          childWrap.style.height = q && (parentMatches || anyChildMatches) ? 'auto' : '';
+        }
+      });
+    }
+
+    /* Оновлює стан пошукового інтерфейсу. */
+    function updateSearchControls(){
+      const open = mainSearchWrap?.classList.contains('open');
+      if(clearSearchBtn){
+        clearSearchBtn.style.display = open && searchInput && searchInput.value.trim() ? 'inline-flex' : 'none';
+      }
+      if(searchToggleBtn){
+        searchToggleBtn.classList.toggle('active', open);
+        searchToggleBtn.setAttribute('aria-expanded', String(open));
+      }
+    }
+
+    /* Актуалізує вибрані вкладки категорій. */
+    function updateCategoryTabs(){
+      if(btnCatAll){
+        btnCatAll.classList.toggle('active', currentCategory === 'Усі');
+        btnCatAll.setAttribute('aria-pressed', String(currentCategory === 'Усі'));
+      }
+      if(btnCatFav){
+        btnCatFav.classList.toggle('active', currentCategory === '⭐ Обране');
+        btnCatFav.setAttribute('aria-pressed', String(currentCategory === '⭐ Обране'));
+      }
+      if(btnCatSearch){
+        const open = categorySearchWrap?.classList.contains('open');
+        btnCatSearch.classList.toggle('active', open);
+        btnCatSearch.setAttribute('aria-expanded', String(open));
+      }
+      if(sidebarActions) sidebarActions.classList.toggle('hidden', categorySearchWrap?.classList.contains('open'));
+    }
+
+    if(btnCatAll) safeOn(btnCatAll, 'click', ()=>{ currentCategory = 'Усі'; clearSelection(); if(categorySearchWrap) categorySearchWrap.classList.remove('open'); if(sidebarActions) sidebarActions.classList.remove('hidden'); updateCategoryTabs(); renderCategories(); renderTemplates(); });
+    if(btnCatFav) safeOn(btnCatFav, 'click', ()=>{ currentCategory = '⭐ Обране'; clearSelection(); if(categorySearchWrap) categorySearchWrap.classList.remove('open'); if(sidebarActions) sidebarActions.classList.remove('hidden'); updateCategoryTabs(); renderCategories(); renderTemplates(); });
+    if(btnCatSearch) safeOn(btnCatSearch, 'click', ()=>{
+      if(!categorySearchWrap) return;
+      const open = categorySearchWrap.classList.toggle('open');
+      if(sidebarActions) sidebarActions.classList.toggle('hidden', open);
+      btnCatSearch.classList.toggle('active', open);
+      btnCatSearch.setAttribute('aria-expanded', String(open));
+      if(open){ categorySearch?.focus(); } else { if(categorySearch){ categorySearch.value=''; filterCategoryButtons(''); } }
+    });
+    let searchDebounceTimer = null;
+    const scheduleSearchRender = ()=>{
+      if(searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(()=>{
+        renderTemplates();
+        updateSearchControls();
+      }, 130);
+    };
+
+    if(categorySearch){
+      safeOn(categorySearch, 'input', (e)=> filterCategoryButtons(e.target.value || ''));
+      safeOn(categorySearch, 'keydown', (e)=>{
+        if(e.key === 'Escape'){
+          e.preventDefault();
+          if(categorySearchWrap?.classList.contains('open')){
+            categorySearchWrap.classList.remove('open');
+            if(sidebarActions) sidebarActions.classList.remove('hidden');
+            if(btnCatSearch) btnCatSearch.setAttribute('aria-expanded','false');
+            categorySearch.value='';
+            filterCategoryButtons('');
+            updateCategoryTabs();
+          }
+        }
+      });
+    }
+
+    if(searchToggleBtn) safeOn(searchToggleBtn, 'click', ()=>{
+      if(!mainSearchWrap) return;
+      const open = mainSearchWrap.classList.toggle('open');
+      searchToggleBtn.setAttribute('aria-expanded', String(open));
+      if(open){ searchInput?.focus(); } else {
+        if(searchInput) searchInput.value='';
+        clearSelection();
+        renderTemplates();
+      }
+      updateSearchControls();
+    });
+    if(clearSearchBtn) safeOn(clearSearchBtn, 'click', ()=>{
+      if(searchInput) searchInput.value='';
+      clearSelection();
+      renderTemplates();
+      if(mainSearchWrap) mainSearchWrap.classList.remove('open');
+      if(searchToggleBtn) searchToggleBtn.setAttribute('aria-expanded', 'false');
+      updateSearchControls();
+    });
+    if(searchInput) safeOn(searchInput, 'input', ()=> scheduleSearchRender());
+    if(searchInput) safeOn(searchInput, 'keydown', (e)=>{
+      if(e.key === 'Escape'){
+        e.preventDefault();
+        if(mainSearchWrap?.classList.contains('open')){
+          mainSearchWrap.classList.remove('open');
+          if(searchToggleBtn) searchToggleBtn.setAttribute('aria-expanded','false');
+          if(searchInput) searchInput.value='';
+          clearSelection();
+          renderTemplates();
+          updateSearchControls();
+        }
+      }
+    });
 
     const savedBg = localStorage.getItem(BG_KEY);
     if(savedBg) $('mainArea').style.backgroundImage = `url(${savedBg})`;
 
+    initMotionMode();
+    if(accountUser && accountData){ restoreAccountState(); }
+    initGoogleAccount();
     renderCategories(); renderTemplates();
+    updateCategoryTabs();
+    updateSearchControls();
+    updateHistoryButtons();
+
+    safeOn(document, 'keydown', (e)=>{
+      if(e.defaultPrevented) return;
+      const active = document.activeElement;
+      if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+      const key = e.key.toLowerCase();
+      const ctrlOrCmd = e.ctrlKey || e.metaKey;
+      if(!ctrlOrCmd) return;
+      if(key === 'z'){
+        if(e.shiftKey){
+          redoAction();
+        } else {
+          undoAction();
+        }
+        e.preventDefault();
+      } else if(key === 'y'){
+        redoAction();
+        e.preventDefault();
+      }
+    });
+
+    if(categorySearch && categorySearch.value){ filterCategoryButtons(categorySearch.value); }
+  }
+
+  function applyMotionMode(mode){
+    if(mode === 'auto'){
+      initMotionMode(true);
+      return;
+    }
+    const valid = ['fast','normal','low','reduced'];
+    document.body.dataset.motion = valid.includes(mode) ? mode : 'normal';
+  }
+
+  /* Налаштовує режим руху для зменшення анімацій. */
+  function initMotionMode(isAuto){
+    if(!isAuto && motionModePreference !== 'auto'){
+      document.body.dataset.motion = motionModePreference;
+      return;
+    }
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(prefersReduced){
+      document.body.dataset.motion = 'reduced';
+      return;
+    }
+
+    const cores = navigator.hardwareConcurrency || 4;
+    const memory = navigator.deviceMemory || 4;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const effectiveType = connection?.effectiveType || '';
+    const saveData = connection?.saveData;
+    const slowNetwork = /(2g|slow-2g)/.test(effectiveType);
+    const mobile = /Mobi|Android/i.test(navigator.userAgent);
+
+    if(saveData || slowNetwork || cores <= 2 || memory <= 2){
+      document.body.dataset.motion = 'low';
+    } else if(cores >= 8 && memory >= 8){
+      document.body.dataset.motion = 'fast';
+    } else if(cores >= 4 && memory >= 4){
+      document.body.dataset.motion = 'normal';
+    } else {
+      document.body.dataset.motion = 'low';
+    }
+
+    measureFrameRate().then(fps => {
+      if(motionModePreference !== 'auto') return;
+      if(fps < 28){
+        document.body.dataset.motion = 'reduced';
+      } else if(fps < 45){
+        document.body.dataset.motion = 'low';
+      } else if(fps < 70){
+        document.body.dataset.motion = 'normal';
+      } else {
+        document.body.dataset.motion = 'fast';
+      }
+    }).catch(()=>{});
+  }
+
+  function measureFrameRate(){
+    return new Promise((resolve, reject) => {
+      if(!window.requestAnimationFrame) return reject(new Error('no raf'));
+      const samples = [];
+      let lastTime = performance.now();
+      let count = 0;
+
+      function step(now){
+        const delta = now - lastTime;
+        lastTime = now;
+        if(delta > 0) samples.push(1000 / delta);
+        count += 1;
+        if(count < 20){
+          requestAnimationFrame(step);
+        } else {
+          const fps = samples.reduce((sum, value) => sum + value, 0) / Math.max(samples.length, 1);
+          resolve(Math.round(fps));
+        }
+      }
+
+      requestAnimationFrame(step);
+    });
   }
 
   document.addEventListener('DOMContentLoaded', init);
 
-  // helper autoFix used earlier
+  // Допоміжна функція autoFix, яка використовується раніше
+  /* Вирівнює текстові рядки та прибирає зайві символи. */
   function autoFix(text){ if(!text) return ''; return String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim(); }
 
-  // Expose for debug
+  // Експортування для налагодження
   window.templates = templates;
   window.importCsvLink = importCsvLinkDirect;
 
   // ---------------------------
-  // Hotkeys module (1-0 copy)
+  // Модуль гарячих клавіш (1–0 для копіювання)
   // ---------------------------
   (function hotkeysModule(){
     let hotkeysEnabled = false;
@@ -1472,6 +3386,7 @@ body.dark .btn.theme-toggle::before{
     const hotkeysHUD = $('hotkeysHUD');
     const HOTKEYS_KEY = 'templatesHotkeysEnabled';
 
+    /* Показує HUD з підказкою гарячих клавіш. */
     function showHotkeysHUD(msg = null, ms = 1200){
       if(!hotkeysHUD) return;
       hotkeysHUD.innerHTML = (msg || '<span class="keys">1–0</span> — копіювати видимі шаблони');
@@ -1479,6 +3394,7 @@ body.dark .btn.theme-toggle::before{
       setTimeout(()=> hotkeysHUD.classList.remove('show'), ms);
     }
 
+    /* Обробляє натискання клавіш для копіювання шаблонів. */
     function hotkeysHandler(e){
       const active = document.activeElement;
       if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
@@ -1501,6 +3417,7 @@ body.dark .btn.theme-toggle::before{
       }
     }
 
+    /* Вмикає обробку гарячих клавіш. */
     function enableHotkeys(){
       if(hotkeysEnabled) return;
       document.addEventListener('keydown', hotkeysHandler);
@@ -1509,6 +3426,7 @@ body.dark .btn.theme-toggle::before{
       showHotkeysHUD('Hotkeys увімкнено');
       try{ localStorage.setItem(HOTKEYS_KEY,'true'); }catch(e){}
     }
+    /* Вимикає обробку гарячих клавіш. */
     function disableHotkeys(){
       if(!hotkeysEnabled) return;
       document.removeEventListener('keydown', hotkeysHandler);
@@ -1517,6 +3435,7 @@ body.dark .btn.theme-toggle::before{
       showHotkeysHUD('Hotkeys вимкнено');
       try{ localStorage.setItem(HOTKEYS_KEY,'false'); }catch(e){}
     }
+    /* Перемикає стан гарячих клавіш. */
     function toggleHotkeys(){
       if(hotkeysEnabled) disableHotkeys(); else enableHotkeys();
     }
@@ -1544,346 +3463,6 @@ body.dark .btn.theme-toggle::before{
     };
   })();
 
-})();
-</script>
-<script>
-// ===== FINAL STABLE FIX =====
-window.__hotkeysEnabled = true;
-window.AUTO_IMPORT_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSK7Pw9yTYj7PzsyFaeaUP8PmfegdxYR900xhC0MKgeZ9DQ-zCimnNMFarxdsBKXSBp9lm3LOfM8MP7/pub?output=csv";
-//Фільтрація шаблонів за пошуком і категорією//
-window.getFilteredTemplates = function() {
-  const search = document.getElementById('search')?.value?.toLowerCase() || '';
-  const category = window.currentCategory || 'all';
-
-  return (window.templates || []).filter(t => {
-
-    const titleMatch = (t.title || '').toLowerCase().includes(search);
-
-    if (category === 'all') return titleMatch;
-
-    if (!category.includes('/')) {
-      return titleMatch && (t.category || '').startsWith(category);
-    }
-
-    return titleMatch && t.category === category;
-  });
-};
-// 2. PATCH RENDER
-(function waitAndPatch(){
-  if (!window.render) return setTimeout(waitAndPatch, 100);
-  if (window.__renderPatched) return;
-
-  window.__renderPatched = true;
-
-  const originalRender = window.render;
-
-  window.render = function() {
-    originalRender();
-    window.filteredTemplates = window.getFilteredTemplates();
-
-    setTimeout(() => {
-      window.renderHotkeyBadges?.();
-      window.updatePreviewState?.();
-    }, 0);
-  };
-
-})();
-
-// 3. HOTKEYS
-window.applyImportedData = function(data) {
-  if (!Array.isArray(data)) return;
-
-  const parsed = data.map((row, i) => {
-
-    const values = Object.values(row);
-
-    const title =
-      row.title ||
-      values[0] ||
-      'No title';
-
-    const text =
-      row.text ||
-      values[1] ||
-      '';
-
-    let rawCategory =
-      row.category ||
-      values[5] ||
-      'Other';
-
-    let category = rawCategory
-      .replace(/[,|\-]+/g, '/')
-      .replace(/\s*\/\s*/g, '/')
-      .split('/')
-      .map(s => s.trim())
-      .filter(Boolean)
-      .join('/');
-
-    return {
-      id: Date.now() + i,
-      title,
-      text,
-      category,
-      tags: ''
-    };
-  });
-
-  window.templates.length = 0;
-  window.templates.push(...parsed);
-  console.log(window.templates.map(t => t.category));
-  localStorage.setItem('brainTemplates', JSON.stringify(window.templates));
-  window.render?.();
-};
-// 5. SAFE BIND
-window.safeBind = function(id, event, handler){
-  const el = document.getElementById(id);
-  if (!el || el._binded) return;
-  el._binded = true;
-  el.addEventListener(event, handler);
-};
-
-
-// ===== BUTTONS + UI FIX (CLEAN) =====
-setTimeout(() => {
-
-  // 🔥 HOTKEYS toggle
-  const hotBtn = document.getElementById('btnHotkeys');
-  if (hotBtn) {
-    hotBtn.onclick = () => {
-      window.__hotkeysEnabled = !window.__hotkeysEnabled;
-      console.log('Hotkeys:', window.__hotkeysEnabled);
-    };
-  }
-
-  // 🔥 Закрытие импорта
-  const closeImport = document.getElementById('btnImportClose');
-  if (closeImport) {
-    closeImport.onclick = () => {
-      document.getElementById('modalImport')?.classList.remove('show');
-    };
-  }
-
-  // 🔥 АВТОИМПОРТ (Google Sheets)
-  const autoBtn = document.getElementById('btnAutoImport');
-  if (autoBtn) {
-    autoBtn.onclick = async () => {
-      console.log('🚀 автоимпорт клик');
-
-      try {
-        const res = await fetch(window.AUTO_IMPORT_CSV);
-        const text = await res.text();
-
-        Papa.parse(text, {
-          header: true,
-          complete: r => {
-            console.log('CSV loaded', r.data);
-            applyImportedData(r.data);
-          }
-        });
-
-      } catch (err) {
-        console.error('Import error:', err);
-        alert('Помилка імпорту');
-      }
-    };
-  }
-
-  // 🔥 Очистка поиска (кнопка)
-  const clearBtn = document.getElementById('clearSearch');
-  if (clearBtn) {
-    clearBtn.onclick = () => {
-      const input = document.getElementById('search');
-      if (!input) return;
-
-      input.value = '';
-      window.render?.();
-    };
-  }
-
-  // 🔥 Автоочистка поиска (15 сек)
-  const searchInput = document.getElementById('search');
-  if (searchInput) {
-
-    let timer;
-
-    searchInput.addEventListener('input', () => {
-      clearTimeout(timer);
-
-      timer = setTimeout(() => {
-        searchInput.value = '';
-        window.render?.();
-      }, 15000);
-    });
-  }
-
-}, 500);
-
-
-// ===== LOGO AUTO SWITCH =====
-function updateLogo(){
-  const isDark = document.body.classList.contains('dark');
-  const logo = document.getElementById('logo');
-  if(!logo) return;
-
-  logo.src = isDark ? 'dark_theme.png' : 'light_theme.png';
-}
-
-setInterval(updateLogo, 500);
-</script>
-
-
-<script>
-// ===== CATEGORY PATCH =====
-(function(){
-
-function patchedRenderCategories(){
-
-  const box = document.getElementById('categories');
-  if(!box || !window.templates) return;
-
-  box.innerHTML = '';
-
-  const map = {};
-
-  window.templates.forEach(t => {
-
-    const parts = (t.category || 'Other')
-      .replace(',', '/')
-      .split('/')
-      .map(s => s.trim());
-
-    const parent = parts[0];
-    const child = parts[1];
-
-    if(!map[parent]) map[parent] = new Set();
-    if(child) map[parent].add(child);
-  });
-
-  Object.keys(map).forEach(parent => {
-
-    const parentBtn = document.createElement('button');
-    parentBtn.className = 'btn';
-    parentBtn.textContent = parent;
-
-    parentBtn.onclick = () => {
-      window.currentCategory = parent;
-      window.render?.();
-    };
-
-    box.appendChild(parentBtn);
-
-    map[parent].forEach(child => {
-
-      const sub = document.createElement('button');
-      sub.className = 'btn';
-      sub.textContent = '— ' + child;
-
-      sub.onclick = (e) => {
-        e.stopPropagation();
-        window.currentCategory = parent + '/' + child;
-        window.render?.();
-      };
-
-      box.appendChild(sub);
-    });
-
-  });
-}
-
-// 🔥 ВОТ ЭТОГО НЕ ХВАТАЛО
-window.renderCategories = patchedRenderCategories;
-
-})();
-</script>
-
-
-<script>
-// ===== CLEAN ADD UI =====
-(function(){
-
-  const modal = document.createElement('div');
-  modal.id = 'cleanAddModal';
-
-  modal.innerHTML = `
-    <div class="box">
-      <h3>Додати шаблон</h3>
-      <input id="cTitle" placeholder="Title"><br><br>
-      <textarea id="cText" placeholder="Text"></textarea><br><br>
-      <input id="cParent" placeholder="Категорія"><br><br>
-      <input id="cChild" placeholder="Підкатегорія"><br><br>
-      <button id="cSave" class="btn">Зберегти</button>
-      <button id="cClose" class="btn">Закрити</button>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  const style = document.createElement('style');
-  style.innerHTML = `
-    #cleanAddModal{
-      position:fixed; inset:0;
-      background:rgba(0,0,0,.4);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      z-index:9999;
-    }
-    #cleanAddModal.show{display:flex}
-    #cleanAddModal .box{
-      background:var(--card);
-      padding:16px;
-      border-radius:12px;
-      width:320px;
-    }
-  `;
-  document.head.appendChild(style);
-
-  function openModal(){ modal.classList.add('show'); }
-  function closeModal(){ modal.classList.remove('show'); }
-
-  const wait = setInterval(()=>{
-    const btn = document.getElementById('addBtn');
-    if(!btn) return;
-
-    clearInterval(wait);
-    btn.onclick = openModal;
-  },100);
-
-  setTimeout(()=>{
-    document.getElementById('cClose').onclick = closeModal;
-
-    document.getElementById('cSave').onclick = ()=>{
-      const title = document.getElementById('cTitle').value;
-      const text = document.getElementById('cText').value;
-      const parent = document.getElementById('cParent').value || 'Other';
-      const child = document.getElementById('cChild').value;
-
-      let raw = child ? parent + '/' + child : parent;
-
-// 🔥 КЛЮЧЕВОЙ ФИКС
-let category = raw
-  .replace(',', '/')
-  .split('/')
-  .map(s => s.trim())
-  .filter(Boolean)
-  .join('/');
-
-      window.templates.push({
-        id: Date.now(),
-        title,
-        text,
-        category
-      });
-
-      localStorage.setItem('brainTemplates', JSON.stringify(window.templates));
-      closeModal();
-      window.render?.();
-    };
-
-  },300);
-
-})();
-</script>
+})();</script>
 </body>
 </html>
