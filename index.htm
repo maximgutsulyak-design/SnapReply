@@ -1298,7 +1298,7 @@ body.dark .gear-btn{
   const ACCOUNT_USER_KEY = 'accountUser';
   const ACCOUNT_DATA_KEY = 'accountState';
   const HISTORY_LIMIT = 40;
-  const GOOGLE_CLIENT_ID = '961679059140-87ppac3jfadtvreeq40tt8v3udvuag.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = '961679059140-87ppac3jfatdtvreeq40tt8v3uddvuag.apps.googleusercontent.com';
   let gridDisplayMode = localStorage.getItem(GRID_MODE_KEY) || 'cards';
   let motionModePreference = localStorage.getItem(MOTION_MODE_KEY) || 'auto';
   let accountUser = JSON.parse(localStorage.getItem(ACCOUNT_USER_KEY) || 'null');
@@ -2042,8 +2042,8 @@ body.dark .gear-btn{
     sortableTemplates = Sortable.create(grid, {
       animation: 220,
       easing: 'cubic-bezier(0.22,0.61,0.36,1)',
-      draggable: '.tile:not(.pinned):not(.placeholder)',
-      handle: '.tile:not(.placeholder)',
+      draggable: '.tile:not(.pinned)',
+      handle: '.tile',
       ghostClass: 'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass: 'sortable-drag',
