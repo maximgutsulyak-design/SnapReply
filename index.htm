@@ -183,7 +183,7 @@ body.dark .search-btn.active{background:var(--btn-primary-bg);color:var(--btn-pr
 .search-wrap.open .search-btn{transform:translateX(-4px) translateY(-3px);}
 .search-icon{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;transition:.35s ease;}
 .close-icon{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;}
-.category-search{width:100%;padding:10px 12px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.06);transition:box-shadow .2s ease, border-color .2s ease;}
+.category-search{width:100%;padding:10px 12px 10px 56px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.06);transition:box-shadow .2s ease, border-color .2s ease;}
 .category-search:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(59,130,246,.12);}
 .logo{height:54px;width:auto;object-fit:contain;}
   .sidebar-logo{display:flex;justify-content:center;align-items:center;padding:10px 0 8px;margin-bottom:8px;}
@@ -1306,7 +1306,25 @@ body.dark .gear-btn{
 
   let historyStack = [];
 
+  function getAccountStateKey(){
+    if(!accountUser || !accountUser.id) return ACCOUNT_DATA_KEY;
+    return `${ACCOUNT_DATA_KEY}:${accountUser.id}`;
+  }
+
+  function loadStoredAccountData(){
+    if(!accountUser || !accountUser.id) return null;
+    const accountKey = getAccountStateKey();
+    const stored = JSON.parse(localStorage.getItem(accountKey) || 'null');
+    if(stored) return stored;
+    const legacy = JSON.parse(localStorage.getItem(ACCOUNT_DATA_KEY) || 'null');
+    if(!legacy) return null;
+    if(!legacy.meta || !legacy.meta.user) return legacy;
+    if(legacy.meta.user.id === accountUser.id) return legacy;
+    return null;
+  }
+
   function getAccountStatePayload(){
+
     return {
       meta: {
         savedAt: new Date().toISOString(),
@@ -1330,6 +1348,8 @@ body.dark .gear-btn{
     if(!accountUser) return;
     try{
       accountData = getAccountStatePayload();
+      const accountKey = getAccountStateKey();
+      localStorage.setItem(accountKey, JSON.stringify(accountData));
       localStorage.setItem(ACCOUNT_DATA_KEY, JSON.stringify(accountData));
       console.log(`Account state saved (${reason})`);
     }catch(err){
@@ -1338,7 +1358,11 @@ body.dark .gear-btn{
   }
 
   function restoreAccountState(){
-    if(!accountUser || !accountData) return;
+    if(!accountUser) return;
+    if(!accountData){
+      accountData = loadStoredAccountData();
+    }
+    if(!accountData) return;
     if(Array.isArray(accountData.templates)){
       templates = accountData.templates.map(ensureShape);
     }
@@ -1445,9 +1469,20 @@ body.dark .gear-btn{
       picture: payload.picture || ''
     };
     localStorage.setItem(ACCOUNT_USER_KEY, JSON.stringify(accountUser));
-    updateAccountUI();
-    saveAccountState('Google sign-in');
-    toast('Успішно увійшли через Google');
+    const storedAccountData = loadStoredAccountData();
+    if(storedAccountData){
+      accountData = storedAccountData;
+      restoreAccountState();
+      renderCategories();
+      renderTemplates();
+      updateAccountUI();
+      saveAccountState('Google sign-in');
+      toast('Дані акаунта завантажено');
+    } else {
+      updateAccountUI();
+      saveAccountState('Google sign-in');
+      toast('Успішно увійшли через Google');
+    }
   }
 
   function signOutGoogle(){
@@ -3260,7 +3295,10 @@ body.dark .gear-btn{
     if(savedBg) $('mainArea').style.backgroundImage = `url(${savedBg})`;
 
     initMotionMode();
-    if(accountUser && accountData){ restoreAccountState(); }
+    if(accountUser){
+      accountData = accountData || loadStoredAccountData();
+      if(accountData){ restoreAccountState(); }
+    }
     initGoogleAccount();
     renderCategories(); renderTemplates();
     updateCategoryTabs();
