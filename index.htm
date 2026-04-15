@@ -63,15 +63,15 @@ body.dark{
   --btn-warning-text:#ffffff;
 }
 *{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background-color .22s ease,color .22s ease}
+html,body{height:100%;overflow:hidden;}
+body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;transition:background-color .22s ease,color .22s ease;overscroll-behavior:none;}
 button,input,textarea,select{font:inherit;transition:background-color .22s ease,color .22s ease,border-color .22s ease,box-shadow .22s ease}
 /* Кореневий макет додатку: бічна панель з навігацією та основна область контенту */
-.app{display:flex;height:100vh}
+.app{display:flex;height:100vh;overflow:hidden;}
 /* Бічна панель: навігація, категорії і керування шаблонами */
-.sidebar{width:250px;background:linear-gradient(180deg, var(--panel-sidebar) 0%, rgba(59,130,246,.05) 100%);border-right:1px solid var(--border);padding:8px 16px 12px;overflow:auto;display:flex;flex-direction:column;gap:12px;min-width:250px;transition:background-color .35s ease,color .35s ease,border-color .35s ease}
+.sidebar{width:250px;background:linear-gradient(180deg, var(--panel-sidebar) 0%, rgba(59,130,246,.05) 100%);border-right:1px solid var(--border);padding:8px 16px 12px;overflow:auto;display:flex;flex-direction:column;gap:12px;min-width:250px;transition:background-color .35s ease,color .35s ease,border-color .35s ease;overscroll-behavior:contain;}
 /* Основна робоча область: вивід контенту, сітка карток і модальних вікон */
-.main{flex:1;display:flex;flex-direction:column;background-position:center center;background-repeat:no-repeat;background-size:cover;background-attachment:fixed;background-color:var(--bg);min-width:0;transition:background-color .35s ease,color .35s ease}
+.main{flex:1;display:flex;flex-direction:column;background-position:center center;background-repeat:no-repeat;background-size:cover;background-attachment:fixed;background-color:var(--bg);min-width:0;transition:background-color .35s ease,color .35s ease;overscroll-behavior:contain;}
 .topbar{display:flex;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border);align-items:center;z-index:120;min-height:58px;transition:background-color .35s ease,color .35s ease,border-color .35s ease}
 
 /* Кнопки: стиль станів, активні дії та кнопки скасування */
@@ -899,7 +899,7 @@ body.dark .gear-btn{
     </div>
 
     <!-- Робоча зона: повідомлення про скасування та сітка карт шаблонів -->
-    <div style="padding:12px;overflow:auto;height:calc(100% - 64px)">
+    <div style="padding:12px;overflow:auto;height:calc(100% - 64px);overscroll-behavior:contain;">
       <div id="undoContainer"></div>
       <div id="grid" class="grid" role="list" aria-label="Сітка шаблонів" aria-live="polite" aria-relevant="all"></div>
       <div id="gridStatus" class="sr-only" aria-live="polite"></div>
@@ -930,6 +930,7 @@ body.dark .gear-btn{
           </div>
           <div class="account-actions">
             <button id="btnGoogleSignIn" class="btn primary">Увійти через Google</button>
+            <button id="btnCloudSync" class="btn secondary" style="display:none">Синхронізувати зараз</button>
             <button id="btnGoogleSignOut" class="btn warning" style="display:none">Вийти</button>
           </div>
         </div>
@@ -1299,12 +1300,165 @@ body.dark .gear-btn{
   const ACCOUNT_DATA_KEY = 'accountState';
   const HISTORY_LIMIT = 40;
   const GOOGLE_CLIENT_ID = '961679059140-87ppac3jfatdtvreeq40tt8v3uddvuag.apps.googleusercontent.com';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  const DRIVE_FILE_NAME = 'SnapReplyAccountState.json';
+  const DRIVE_FILE_ID_KEY = 'accountDriveFileId';
   let gridDisplayMode = localStorage.getItem(GRID_MODE_KEY) || 'cards';
   let motionModePreference = localStorage.getItem(MOTION_MODE_KEY) || 'auto';
   let accountUser = JSON.parse(localStorage.getItem(ACCOUNT_USER_KEY) || 'null');
   let accountData = JSON.parse(localStorage.getItem(ACCOUNT_DATA_KEY) || 'null');
+  let driveTokenClient = null;
+  let googleAccessToken = null;
 
   let historyStack = [];
+
+  function getDriveFileStorageKey(){
+    if(!accountUser || !accountUser.id) return null;
+    return `${DRIVE_FILE_ID_KEY}:${accountUser.id}`;
+  }
+
+  function getStoredDriveFileId(){
+    const key = getDriveFileStorageKey();
+    return key ? localStorage.getItem(key) : null;
+  }
+
+  function setStoredDriveFileId(id){
+    const key = getDriveFileStorageKey();
+    if(key) localStorage.setItem(key, id);
+  }
+
+  function clearStoredDriveFileId(){
+    const key = getDriveFileStorageKey();
+    if(key) localStorage.removeItem(key);
+  }
+
+  function initDriveTokenClient(){
+    if(driveTokenClient) return;
+    if(!window.google || !google.accounts || !google.accounts.oauth2) return;
+    driveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (resp) => {
+        if(resp.error){
+          console.warn('Drive token error', resp);
+          if(pendingTokenReject) pendingTokenReject(new Error(resp.error));
+          pendingTokenReject = null;
+          pendingTokenResolve = null;
+          return;
+        }
+        googleAccessToken = resp.access_token;
+        if(pendingTokenResolve){
+          pendingTokenResolve(resp.access_token);
+          pendingTokenResolve = null;
+          pendingTokenReject = null;
+        }
+      }
+    });
+  }
+
+  let pendingTokenResolve = null;
+  let pendingTokenReject = null;
+
+  function requestDriveAccessToken(forceConsent = false){
+    return new Promise((resolve, reject) => {
+      initDriveTokenClient();
+      if(!driveTokenClient) return reject(new Error('Drive OAuth client unavailable'));
+      pendingTokenResolve = resolve;
+      pendingTokenReject = reject;
+      driveTokenClient.requestAccessToken({prompt: forceConsent ? 'consent' : 'none'});
+    });
+  }
+
+  async function ensureDriveToken(force = false){
+    if(googleAccessToken) return googleAccessToken;
+    try{
+      return await requestDriveAccessToken(false);
+    }catch(err){
+      if(force) throw err;
+      return await requestDriveAccessToken(true);
+    }
+  }
+
+  async function findDriveFileId(forceToken = false){
+    const token = await ensureDriveToken(forceToken).catch(()=>null);
+    if(!token) return null;
+    const storedId = getStoredDriveFileId();
+    if(storedId){
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${storedId}?fields=id,name`, {headers:{Authorization:`Bearer ${token}`}});
+      if(res.ok) return storedId;
+      clearStoredDriveFileId();
+    }
+    const query = `name='${DRIVE_FILE_NAME}' and 'appDataFolder' in parents and trashed=false`;
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&spaces=appDataFolder&fields=files(id,name)`, {headers:{Authorization:`Bearer ${token}`}});
+    if(!res.ok) return null;
+    const data = await res.json();
+    if(data.files && data.files[0]){
+      setStoredDriveFileId(data.files[0].id);
+      return data.files[0].id;
+    }
+    return null;
+  }
+
+  async function loadCloudAccountState(interactive = false){
+    if(!accountUser) return null;
+    try{
+      const fileId = await findDriveFileId(interactive);
+      if(!fileId) return null;
+      const token = await ensureDriveToken(false);
+      if(!token) return null;
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {headers:{Authorization:`Bearer ${token}`}});
+      if(!res.ok) return null;
+      return await res.json();
+    }catch(err){
+      console.warn('Cloud load failed', err);
+      return null;
+    }
+  }
+
+  async function saveCloudAccountState(){
+    if(!accountUser) return;
+    try{
+      const token = await ensureDriveToken(false);
+      const fileId = await findDriveFileId();
+      const payload = JSON.stringify(getAccountStatePayload());
+      if(fileId){
+        const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+          method:'PATCH',
+          headers:{Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
+          body: payload
+        });
+        if(res.ok) return;
+      }
+      const metadata = {name: DRIVE_FILE_NAME, parents:['appDataFolder']};
+      const boundary = '-------314159265358979323846';
+      const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${boundary}--`;
+      const createRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id`, {
+        method:'POST',
+        headers:{Authorization:`Bearer ${token}`, 'Content-Type':`multipart/related; boundary=${boundary}`},
+        body
+      });
+      if(!createRes.ok) return;
+      const created = await createRes.json();
+      if(created.id) setStoredDriveFileId(created.id);
+    }catch(err){
+      console.warn('Cloud save failed', err);
+    }
+  }
+
+  async function syncCloudNow(){
+    if(!accountUser){
+      toast('Увійдіть через Google, щоб синхронізувати дані');
+      return;
+    }
+    saveAccountState('manual sync');
+    try{
+      await saveCloudAccountState();
+      toast('Дані успішно синхронізовано з хмарою');
+    }catch(err){
+      console.warn('Manual cloud sync failed', err);
+      toast('Не вдалося синхронізувати з хмарою');
+    }
+  }
 
   function getAccountStateKey(){
     if(!accountUser || !accountUser.id) return ACCOUNT_DATA_KEY;
@@ -1352,6 +1506,9 @@ body.dark .gear-btn{
       localStorage.setItem(accountKey, JSON.stringify(accountData));
       localStorage.setItem(ACCOUNT_DATA_KEY, JSON.stringify(accountData));
       console.log(`Account state saved (${reason})`);
+      if(googleAccessToken){
+        saveCloudAccountState();
+      }
     }catch(err){
       console.warn('Не вдалося зберегти стан облікового запису', err);
     }
@@ -1410,14 +1567,17 @@ body.dark .gear-btn{
     const accountName = $('accountName');
     const signInBtn = $('btnGoogleSignIn');
     const signOutBtn = $('btnGoogleSignOut');
+    const syncBtn = $('btnCloudSync');
     if(accountUser){
       if(accountName) accountName.textContent = `${accountUser.name || accountUser.email} (Google)`;
       if(signInBtn) signInBtn.style.display = 'none';
       if(signOutBtn) signOutBtn.style.display = 'inline-flex';
+      if(syncBtn) syncBtn.style.display = 'inline-flex';
     } else {
       if(accountName) accountName.textContent = 'Не увійшли';
       if(signInBtn) signInBtn.style.display = 'inline-flex';
       if(signOutBtn) signOutBtn.style.display = 'none';
+      if(syncBtn) syncBtn.style.display = 'none';
     }
   }
 
@@ -1443,6 +1603,7 @@ body.dark .gear-btn{
       }
       return;
     }
+    initDriveTokenClient();
     if(!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE'){
       console.warn('Google client ID is not configured. Set GOOGLE_CLIENT_ID in index.htm');
       return;
@@ -1456,9 +1617,20 @@ body.dark .gear-btn{
     if(!accountUser){
       google.accounts.id.prompt();
     }
+    if(accountUser){
+      loadCloudAccountState().then(cloudData => {
+        if(cloudData){
+          accountData = cloudData;
+          restoreAccountState();
+          renderCategories();
+          renderTemplates();
+          toast('Дані акаунта завантажено з хмари');
+        }
+      }).catch(err => console.warn('Cloud restore after Google init failed', err));
+    }
   }
 
-  function handleGoogleCredential(response){
+  async function handleGoogleCredential(response){
     if(!response?.credential) return;
     const payload = parseJwt(response.credential);
     if(!payload || !payload.sub) return;
@@ -1469,17 +1641,16 @@ body.dark .gear-btn{
       picture: payload.picture || ''
     };
     localStorage.setItem(ACCOUNT_USER_KEY, JSON.stringify(accountUser));
-    const storedAccountData = loadStoredAccountData();
-    if(storedAccountData){
-      accountData = storedAccountData;
+    updateAccountUI();
+
+    const cloudData = await loadCloudAccountState(true);
+    if(cloudData){
+      accountData = cloudData;
       restoreAccountState();
       renderCategories();
       renderTemplates();
-      updateAccountUI();
-      saveAccountState('Google sign-in');
-      toast('Дані акаунта завантажено');
+      toast('Дані акаунта завантажено з хмари');
     } else {
-      updateAccountUI();
       saveAccountState('Google sign-in');
       toast('Успішно увійшли через Google');
     }
@@ -1491,6 +1662,8 @@ body.dark .gear-btn{
     }
     accountUser = null;
     accountData = null;
+    googleAccessToken = null;
+    driveTokenClient = null;
     localStorage.removeItem(ACCOUNT_USER_KEY);
     localStorage.removeItem(ACCOUNT_DATA_KEY);
     updateAccountUI();
@@ -3134,6 +3307,7 @@ body.dark .gear-btn{
 
     const btnGoogleSignIn = $('btnGoogleSignIn');
     const btnGoogleSignOut = $('btnGoogleSignOut');
+    const btnCloudSync = $('btnCloudSync');
     if(btnGoogleSignIn) safeOn(btnGoogleSignIn, 'click', (e)=>{
       e.preventDefault();
       if(window.google && window.google.accounts && window.google.accounts.id){
@@ -3150,6 +3324,7 @@ body.dark .gear-btn{
       }
       alert('Google sign-in недоступний або не завантажено. Спробуйте оновити сторінку або перевірити підключення до інтернету.');
     });
+    if(btnCloudSync) safeOn(btnCloudSync, 'click', ()=> syncCloudNow());
     if(btnGoogleSignOut) safeOn(btnGoogleSignOut, 'click', ()=> signOutGoogle());
     if(btnUndo) safeOn(btnUndo, 'click', ()=> undoAction());
     if(btnRedo) safeOn(btnRedo, 'click', ()=> redoAction());
