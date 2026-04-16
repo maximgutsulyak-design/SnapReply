@@ -842,15 +842,16 @@ window.gapiLoaded = function(){
 };
 
 window.addEventListener('load', () => {
-  const hash = window.location.hash;
-  if(hash && hash.includes('access_token')){
-    const params = new URLSearchParams(hash.substring(1));
-    const token = params.get('access_token');
-    if(token){
-      console.log('Авторизация прошла успешно, токен получен!');
-      googleAccessToken = token;
-      setGapiAccessToken(googleAccessToken);
-      window.history.replaceState(null, null, window.location.pathname);
+  const params = new URLSearchParams(window.location.hash.substring(1));
+  const accessToken = params.get('access_token');
+
+  if (accessToken) {
+    console.log('Токен успешно получен после редиректа!');
+    if(window.gapi && gapi.client){
+      gapi.client.setToken({ access_token: accessToken });
+    }
+    window.history.replaceState(null, null, window.location.pathname);
+    if (typeof loadCloudAccountState === 'function') {
       loadCloudAccountState();
     }
   }
@@ -1449,14 +1450,15 @@ window.addEventListener('load', () => {
   function initDriveTokenClient(){
     if(driveTokenClient) return;
     if(!window.google || !google.accounts || !google.accounts.oauth2) return;
+    const currentOrigin = window.location.origin + window.location.pathname;
     driveTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: DRIVE_SCOPE,
       ux_mode: 'redirect',
-      redirect_uri: 'https://maximgutsulyak-design.github.io/SnapReply/',
-      prompt: 'select_account',
-      callback: '',
+      redirect_uri: currentOrigin,
+      prompt: 'select_account'
     });
+    console.log('Google Drive Client инициализирован в режиме редиректа');
   }
 
   let pendingTokenResolve = null;
