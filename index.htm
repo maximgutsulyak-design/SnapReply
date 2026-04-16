@@ -3404,6 +3404,7 @@ body.dark .gear-btn{
 
   // Експортування для налагодження
   window.templates = templates;
+  window.renderTemplates = renderTemplates;
   window.importCsvLink = importCsvLinkDirect;
 
   // ---------------------------
@@ -3683,15 +3684,20 @@ async function loadTemplatesFromFirebase() {
       return null;
     }
 
-    window.templates = docData.templates.map(ensureShape);
+    window.templates = docData.templates || [];
     try {
+      localStorage.setItem('templates', JSON.stringify(window.templates));
       localStorage.setItem('brainTemplates', JSON.stringify(window.templates));
     } catch (err) {
       console.warn('[FB DEBUG]: localStorage backup failed', err);
     }
 
-    renderTemplates();
-    console.log('[FB DEBUG]: Loaded ' + window.templates.length + ' templates from Firestore');
+    if (typeof window.renderTemplates === 'function') {
+      window.renderTemplates();
+      console.log('[FB DEBUG]: Templates rendered to UI:', window.templates.length);
+    } else {
+      console.error('Render function not found!');
+    }
     return window.templates;
   }
 
