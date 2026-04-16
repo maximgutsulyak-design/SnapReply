@@ -3543,7 +3543,10 @@ async function initFirebase() {
   }
 
   auth = getAuth(app);
-  db = initializeFirestore(app, { experimentalForceLongPolling: true });
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    useFetchStreams: false
+  });
 
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
@@ -3665,6 +3668,7 @@ async function loadTemplatesFromFirebase() {
   const ref = doc(db, 'users', user.uid);
 
   async function fetchData() {
+    console.log('[FB DEBUG]: Attempting to fetch via Long Polling...');
     const snapshot = await getDoc(ref);
     if (!snapshot.exists()) {
       console.log('[FB DEBUG]: Firestore is empty for this user.');
