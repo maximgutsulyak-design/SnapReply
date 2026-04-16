@@ -3506,7 +3506,7 @@ import {
   browserLocalPersistence
 } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js';
 import {
-  getFirestore,
+  initializeFirestore,
   doc,
   setDoc,
   getDoc,
@@ -3543,7 +3543,7 @@ async function initFirebase() {
   }
 
   auth = getAuth(app);
-  db = getFirestore(app);
+  db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
@@ -3663,7 +3663,8 @@ async function loadTemplatesFromFirebase() {
   if (!user) return null;
 
   const ref = doc(db, 'users', user.uid);
-  try {
+
+  async function fetchData() {
     const snapshot = await getDoc(ref);
     if (!snapshot.exists()) {
       console.log('[FB DEBUG]: Firestore is empty for this user.');
@@ -3688,8 +3689,24 @@ async function loadTemplatesFromFirebase() {
     renderTemplates();
     console.log('[FB DEBUG]: Loaded ' + window.templates.length + ' templates from Firestore');
     return window.templates;
+  }
+
+  try {
+    return await fetchData();
   } catch (error) {
+    const isOffline = String(error.message || '').toLowerCase().includes('client is offline');
     console.error('[FB DEBUG]: loadTemplatesFromFirebase error:', error);
+    if (isOffline) {
+      console.log('[FB DEBUG]: client is offline, retrying in 2 seconds...');
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      try {
+        return await fetchData();
+      } catch (retryError) {
+        console.error('[FB DEBUG]: Retry failed:', retryError);
+        alert('Firestore load error: ' + (retryError.code || retryError.message || retryError));
+        return null;
+      }
+    }
     alert('Firestore load error: ' + (error.code || error.message || error));
     return null;
   }
