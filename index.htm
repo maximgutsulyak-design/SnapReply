@@ -810,6 +810,7 @@ body.dark .gear-btn{
 .account-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .account-actions .btn{min-width:140px}
 </style>
+<script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
 <!-- Основна структура додатку: бічна панель з категоріями та головна робоча область -->
@@ -1311,7 +1312,10 @@ body.dark .gear-btn{
   let driveTokenClient = null;
   let googleAccessToken = null;
   let googleRenderButtonInitialized = false;
+  let siteContext = getAppSiteContext();
 
+  window.SITE_CONTEXT = siteContext;
+  console.log('Site context detected:', siteContext);
   let historyStack = [];
 
   function getDriveFileStorageKey(){
@@ -1334,6 +1338,66 @@ body.dark .gear-btn{
     if(key) localStorage.removeItem(key);
   }
 
+  function getAppSiteContext(){
+    const origin = window.location.origin.toLowerCase();
+    const path = window.location.pathname.replace(/\/$/, '').toLowerCase();
+    if(origin === 'https://maximgutsulyak-design.github.io' && path.startsWith('/snapreply')){
+      return 'snapreply';
+    }
+    if(origin === 'https://maximgutsulyak-design.github.io' && path.startsWith('/template-platform-v3')){
+      return 'template-platform-v3';
+    }
+    if(origin.startsWith('http://localhost') || origin.startsWith('https://localhost')){
+      return 'localhost';
+    }
+    return 'unknown';
+  }
+
+  let gapiClientReady = false;
+
+  async function loadGapiClient(){
+    if(!window.gapi) return false;
+    if(gapiClientReady) return true;
+    return new Promise((resolve, reject) => {
+      gapi.load('client', {
+        callback: async () => {
+          try{
+            await gapi.client.init({
+              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+            });
+            gapiClientReady = true;
+            resolve(true);
+          }catch(err){
+            console.warn('GAPI client init failed', err);
+            resolve(false);
+          }
+        },
+        onerror: () => {
+          console.warn('GAPI load failed');
+          resolve(false);
+        },
+        timeout: 5000,
+        ontimeout: () => {
+          console.warn('GAPI load timeout');
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  function setGapiAccessToken(token){
+    if(window.gapi && gapi.client && token){
+      gapi.client.setToken({access_token: token});
+    }
+  }
+
+  async function ensureGapiDriveClient(token){
+    const ok = await loadGapiClient();
+    if(!ok) return false;
+    if(token) setGapiAccessToken(token);
+    return true;
+  }
+
   function initDriveTokenClient(){
     if(driveTokenClient) return;
     if(!window.google || !google.accounts || !google.accounts.oauth2) return;
@@ -1349,6 +1413,7 @@ body.dark .gear-btn{
           return;
         }
         googleAccessToken = resp.access_token;
+        setGapiAccessToken(googleAccessToken);
         if(pendingTokenResolve){
           pendingTokenResolve(resp.access_token);
           pendingTokenResolve = null;
@@ -1384,13 +1449,31 @@ body.dark .gear-btn{
   async function findDriveFileId(forceToken = false){
     const token = await ensureDriveToken(forceToken).catch(()=>null);
     if(!token) return null;
+    const gapiReady = await ensureGapiDriveClient(token);
     const storedId = getStoredDriveFileId();
     if(storedId){
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${storedId}?fields=id,name`, {headers:{Authorization:`Bearer ${token}`}});
-      if(res.ok) return storedId;
-      clearStoredDriveFileId();
+      try{
+        if(gapiReady){
+          const verify = await gapi.client.drive.files.get({fileId: storedId, fields: 'id,name'});
+          if(verify && verify.result && verify.result.id) return storedId;
+        } else {
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${storedId}?fields=id,name`, {headers:{Authorization:`Bearer ${token}`}});
+          if(res.ok) return storedId;
+        }
+      }catch(err){
+        clearStoredDriveFileId();
+      }
     }
     const query = `name='${DRIVE_FILE_NAME}' and 'appDataFolder' in parents and trashed=false`;
+    if(gapiReady){
+      const list = await gapi.client.drive.files.list({q: query, spaces:'appDataFolder', fields:'files(id,name)'});
+      const files = list?.result?.files || [];
+      if(files[0]){
+        setStoredDriveFileId(files[0].id);
+        return files[0].id;
+      }
+      return null;
+    }
     const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&spaces=appDataFolder&fields=files(id,name)`, {headers:{Authorization:`Bearer ${token}`}});
     if(!res.ok) return null;
     const data = await res.json();
@@ -1408,6 +1491,14 @@ body.dark .gear-btn{
       if(!fileId) return null;
       const token = await ensureDriveToken(false);
       if(!token) return null;
+      const gapiReady = await ensureGapiDriveClient(token);
+      if(gapiReady){
+        const response = await gapi.client.drive.files.get({fileId, alt: 'media'});
+        if(response && response.body){
+          return JSON.parse(response.body);
+        }
+        return null;
+      }
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {headers:{Authorization:`Bearer ${token}`}});
       if(!res.ok) return null;
       return await res.json();
@@ -1418,18 +1509,36 @@ body.dark .gear-btn{
   }
 
   async function saveCloudAccountState(){
-    if(!accountUser) return;
+    if(!accountUser) return false;
     try{
       const token = await ensureDriveToken(false);
-      const fileId = await findDriveFileId();
+      if(!token){
+        console.warn('Cloud save aborted: no Drive token available');
+        return false;
+      }
       const payload = JSON.stringify(getAccountStatePayload());
+      const gapiReady = await ensureGapiDriveClient(token);
+      const fileId = await findDriveFileId(true);
+      if(gapiReady && fileId){
+        const updateRes = await gapi.client.request({
+          path: `/upload/drive/v3/files/${fileId}`,
+          method: 'PATCH',
+          params: {uploadType: 'media'},
+          body: payload
+        });
+        if(updateRes && (updateRes.status === 200 || updateRes.status === 204)){
+          return true;
+        }
+        console.warn('Cloud save patch failed', updateRes);
+      }
       if(fileId){
         const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
           method:'PATCH',
           headers:{Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
           body: payload
         });
-        if(res.ok) return;
+        if(res.ok) return true;
+        console.warn('Cloud save patch failed', await res.text());
       }
       const metadata = {name: DRIVE_FILE_NAME, parents:['appDataFolder']};
       const boundary = '-------314159265358979323846';
@@ -1439,11 +1548,19 @@ body.dark .gear-btn{
         headers:{Authorization:`Bearer ${token}`, 'Content-Type':`multipart/related; boundary=${boundary}`},
         body
       });
-      if(!createRes.ok) return;
+      if(!createRes.ok){
+        console.warn('Cloud save create failed', await createRes.text());
+        return false;
+      }
       const created = await createRes.json();
-      if(created.id) setStoredDriveFileId(created.id);
+      if(created.id){
+        setStoredDriveFileId(created.id);
+        return true;
+      }
+      return false;
     }catch(err){
       console.warn('Cloud save failed', err);
+      return false;
     }
   }
 
@@ -1453,11 +1570,10 @@ body.dark .gear-btn{
       return;
     }
     saveAccountState('manual sync');
-    try{
-      await saveCloudAccountState();
+    const synced = await saveCloudAccountState();
+    if(synced){
       toast('Дані успішно синхронізовано з хмарою');
-    }catch(err){
-      console.warn('Manual cloud sync failed', err);
+    } else {
       toast('Не вдалося синхронізувати з хмарою');
     }
   }
