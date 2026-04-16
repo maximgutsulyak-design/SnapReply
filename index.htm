@@ -196,13 +196,15 @@ body.dark .search-btn.active{background:var(--btn-primary-bg);color:var(--btn-pr
   .sidebar-head .sidebar-actions{margin-left:auto;height:44px;}
 /* Дизайн сітки і карток: адаптивна сітка, інтерактивні плитки та анімації появи */
 .grid{padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile),1fr));gap:var(--gap);overflow:auto;position:relative}
-.grid.display-wide,.grid.display-text{grid-template-columns:1fr}
+.grid.display-wide{grid-template-columns:repeat(auto-fit,minmax(calc(var(--tile) * 1.6),1fr))}
+.grid.display-text{grid-template-columns:1fr}
 .grid.display-wide .tile,
 .grid.display-text .tile{
   width:100%;
-  max-width:calc(var(--tile) * var(--zoom-scale));
-  margin:0 auto;
+  max-width:none;
+  margin:0;
   transform-origin:top center;
+  min-height:calc(140px * var(--zoom-scale));
 }
 .grid-empty-state{grid-column:1/-1;min-height:260px;display:flex;align-items:center;justify-content:center;padding:28px 20px;border:1px dashed rgba(100,116,139,.35);border-radius:18px;background:rgba(59,130,246,.05);color:var(--text);font-size:16px;line-height:1.5;text-align:center}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -215,12 +217,11 @@ body.dark .search-btn.active{background:var(--btn-primary-bg);color:var(--btn-pr
 .grid.display-wide .tile .thumb > div{max-width:100%;max-height:100%;width:auto;height:auto;}
 .grid.display-wide .tile .previewText{position:static;opacity:1;transform:none;padding:0;max-height:none;border-radius:0;background:transparent;color:var(--text);font-size:14px;}
 .grid.display-wide .tile .title{padding:10px 18px 6px 18px;text-align:left;}
-.grid.display-text .tile{min-height:auto;}
+.grid.display-text .tile{min-height:auto;display:flex;flex-direction:column;justify-content:flex-start;cursor:text;}
 .grid.display-text .tile .thumb{display:none;}
 .grid.display-text .tile .contentArea{padding:0;}
-.grid.display-text .tile .previewText{position:static;opacity:1;transform:none;padding:0 18px 12px;max-height:none;color:var(--text);font-size:14px;}
-.grid.display-text .tile .title{padding:12px 18px 8px 18px;text-align:left;white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;max-height:3.2em;line-height:1.4;}
-.grid.display-wide .tile:hover,
+.grid.display-text .tile .previewText{position:static;opacity:1;transform:none;padding:0 24px 20px;max-height:none;color:var(--text);font-size:15px;line-height:1.7;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;user-select:text;}
+.grid.display-text .tile .title{padding:20px 24px 12px 24px;text-align:center;white-space:normal;overflow:visible;text-overflow:clip;display:block;max-height:none;line-height:1.4;font-size:18px;font-weight:700;user-select:text;}
 .grid.display-text .tile:hover{transform:none;border-color:inherit;box-shadow:none;}
 .grid.display-wide .tile:hover .thumb img,
 .grid.display-wide .tile:hover .thumb > div{transform:none;opacity:1;}
@@ -387,7 +388,11 @@ body.dark .modal-note{background:rgba(234,181,0,.12);color:var(--text)}
 }
 
 .btn svg,
-button svg{pointer-events:none;}
+button svg{
+  pointer-events:none;
+  display:block;
+  flex-shrink:0;
+}
 
 .btn.primary{
   background:var(--btn-primary-bg);
@@ -576,6 +581,144 @@ body.light .btn.theme-toggle:hover{
   color:#000;
 }
 
+.btn.lock-toggle{
+  width:44px;
+  min-width:44px;
+  height:44px;
+  padding:0;
+  border-radius:14px;
+  position:relative;
+  background:rgba(255,255,255,0.06);
+  border:none;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#aaa;
+  backdrop-filter:blur(12px);
+  transition:background .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 20px rgba(0,0,0,.15);
+}
+
+.btn.lock-toggle:hover{
+  transform:translateY(-1px) scale(1.02);
+  background:#4154A3;
+  color:#fff;
+}
+
+body.light .btn.lock-toggle:hover{
+  background:#EAB500;
+  color:#000;
+}
+
+.btn.lock-toggle:active{
+  transform:translateY(0) scale(0.98);
+}
+
+.btn.lock-toggle.active{
+  background:#EAB500;
+  color:#000;
+  box-shadow:0 0 0 2px rgba(234,181,0,.4), 0 10px 26px rgba(234,181,0,.35);
+}
+
+body.light .btn.lock-toggle.active{
+  background:#4154A3;
+  color:#fff;
+  box-shadow:0 0 0 2px rgba(65,84,163,.4), 0 10px 26px rgba(65,84,163,.35);
+}
+
+.btn.lock-toggle::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:14px;
+  opacity:0;
+  transition:.3s;
+  box-shadow:0 0 22px rgba(65,84,163,.35);
+}
+
+.btn.lock-toggle:not(.active):hover::after{
+  opacity:1;
+}
+
+.btn.lock-toggle .lock-icon{
+  display:block;
+  flex-shrink:0;
+  width:22px;
+  height:22px;
+  stroke:currentColor;
+  stroke-width:1.8;
+  fill:none;
+  overflow:visible;
+  transition:transform .2s ease,opacity .2s ease;
+  transform-origin:center center;
+  transform-box:fill-box;
+  -webkit-transform-box:fill-box;
+  vector-effect:non-scaling-stroke;
+}
+
+.btn.lock-toggle .shackle{
+  transform-origin:18px 10px;
+  transform-box:fill-box;
+  -webkit-transform-box:fill-box;
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1);
+}
+
+.btn.lock-toggle.active .shackle{
+  transform:rotate(32deg) translateY(-1px);
+}
+
+.btn.lock-toggle:not(.active) .shackle{
+  transform:rotate(0deg);
+}
+
+.btn.lock-toggle .lock-state{
+  opacity:0;
+  transform:scale(0.94);
+  transition:opacity .25s ease,transform .25s ease;
+  transform-origin:center center;
+}
+
+.btn.lock-toggle .lock-closed{
+  opacity:1;
+  transform:scale(1);
+}
+
+.btn.lock-toggle.active .lock-closed{
+  opacity:0;
+  transform:scale(0.92);
+}
+
+.btn.lock-toggle .lock-open{
+  opacity:0;
+  transform:scale(0.92);
+}
+
+.btn.lock-toggle.active .lock-open{
+  opacity:1;
+  transform:scale(1);
+}
+
+.btn.lock-toggle .lock-state-dot{
+  position:absolute;
+  top:8px;
+  right:8px;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#00ff88;
+  opacity:0;
+  transform:scale(0.6);
+  pointer-events:none;
+  transition:opacity .25s ease,transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease;
+}
+
+.btn.lock-toggle.active .lock-state-dot{
+  opacity:1;
+  transform:scale(1);
+  box-shadow:0 0 8px rgba(0,255,136,.35);
+}
+
 body:not(.light) .btn.theme-toggle.active{
   background:#EAB500;
   color:#000;
@@ -607,45 +750,50 @@ body.light .btn.theme-toggle.active{
 }
 
 .btn.theme-toggle .theme-icon{
+  display:block;
+  flex-shrink:0;
   width:22px;
   height:22px;
   stroke:currentColor;
   stroke-width:2;
   fill:none;
+  overflow:visible;
   transition:transform .22s ease, opacity .22s ease;
   transform-origin:center center;
   will-change:transform, opacity;
   transform-box:fill-box;
   -webkit-transform-box:fill-box;
+  vector-effect:non-scaling-stroke;
 }
 
-.btn.theme-toggle .theme-icon .sun,
-.btn.theme-toggle .theme-icon .moon{
+.btn.theme-toggle .theme-icon .theme-state{
   transition:transform .22s ease, opacity .22s ease;
   transform-origin:center center;
   transform-box:fill-box;
   -webkit-transform-box:fill-box;
   will-change:transform, opacity;
-}
-
-.btn.theme-toggle .theme-icon .sun{
   opacity:0;
   transform:scale(0.6);
 }
 
-.btn.theme-toggle .theme-icon .moon{
+.btn.theme-toggle .theme-icon .theme-moon{
   opacity:1;
-  transform:scale(1);
+  transform:translateX(-0.5px) scale(1);
 }
 
-body.light .btn.theme-toggle .theme-icon .sun{
-  opacity:1;
-  transform:scale(1);
-}
-
-body.light .btn.theme-toggle .theme-icon .moon{
+.btn.theme-toggle .theme-icon .theme-sun{
   opacity:0;
   transform:scale(0.6);
+}
+
+body.light .btn.theme-toggle .theme-icon .theme-moon{
+  opacity:0;
+  transform:translateX(-0.5px) scale(0.6);
+}
+
+body.light .btn.theme-toggle .theme-icon .theme-sun{
+  opacity:1;
+  transform:scale(1);
 }
 
 .btn.icon-btn{
@@ -887,19 +1035,40 @@ body.dark .gear-btn{
       </div>
       <div style="flex:1"></div>
       <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnLock" class="btn lock-toggle" aria-label="Блокування drag/drop" aria-pressed="false" type="button">
+          <svg viewBox="0 -2 24 26" class="lock-icon" aria-hidden="true">
+            <g class="icon-root">
+              <g class="lock-state lock-closed">
+                <path d="M2 16C2 13.17 2 11.75 2.88 10.88C3.75 10 5.17 10 8 10H16C18.83 10 20.24 10 21.12 10.88C22 11.75 22 13.17 22 16C22 18.83 22 20.24 21.12 21.12C20.24 22 18.83 22 16 22H8C5.17 22 3.75 22 2.88 21.12C2 20.24 2 18.83 2 16Z" />
+                <circle cx="12" cy="16" r="2" />
+                <path class="shackle" d="M6 10V8C6 4.7 8.7 2 12 2C15.3 2 18 4.7 18 8V10" stroke-linecap="round" />
+              </g>
+              <g class="lock-state lock-open">
+                <path d="M2 16C2 13.17 2 11.75 2.88 10.88C3.75 10 5.17 10 8 10H16C18.83 10 20.24 10 21.12 10.88C22 11.75 22 13.17 22 16C22 18.83 22 20.24 21.12 21.12C20.24 22 18.83 22 16 22H8C5.17 22 3.75 22 2.88 21.12C2 20.24 2 18.83 2 16Z" />
+                <circle cx="12" cy="16" r="2" />
+                <path class="shackle" d="M6 10V8C6 4.7 8.7 2 12 2C15.3 2 18 4.7 18 8V10" stroke-linecap="round" />
+              </g>
+            </g>
+          </svg>
+          <span class="lock-state-dot"></span>
+        </button>
         <button id="btnTheme" class="btn theme-toggle active" aria-label="Тема">
           <svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path id="moon" class="moon" d="M21 12.8 A9 9 0 1 1 11.2 3 A7 7 0 0 0 21 12.8" />
-            <g id="sun" class="sun">
-              <circle cx="12" cy="12" r="4" />
-              <line x1="12" y1="2" x2="12" y2="5" />
-              <line x1="12" y1="19" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="5" y2="12" />
-              <line x1="19" y1="12" x2="22" y2="12" />
-              <line x1="4.5" y1="4.5" x2="6.5" y2="6.5" />
-              <line x1="17.5" y1="17.5" x2="19.5" y2="19.5" />
-              <line x1="4.5" y1="19.5" x2="6.5" y2="17.5" />
-              <line x1="17.5" y1="6.5" x2="19.5" y2="4.5" />
+            <g class="icon-root">
+              <g class="theme-state theme-moon">
+                <path d="M21 12.8 A9 9 0 1 1 11.2 3 A7 7 0 0 0 21 12.8" />
+              </g>
+              <g class="theme-state theme-sun">
+                <circle cx="12" cy="12" r="4" />
+                <line x1="12" y1="2" x2="12" y2="5" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="5" y2="12" />
+                <line x1="19" y1="12" x2="22" y2="12" />
+                <line x1="4.5" y1="4.5" x2="6.5" y2="6.5" />
+                <line x1="17.5" y1="17.5" x2="19.5" y2="19.5" />
+                <line x1="4.5" y1="19.5" x2="6.5" y2="17.5" />
+                <line x1="17.5" y1="6.5" x2="19.5" y2="4.5" />
+              </g>
             </g>
           </svg>
         </button>
@@ -1309,6 +1478,7 @@ body.dark .gear-btn{
 
   const MOTION_MODE_KEY = 'animationModePreference';
   const GRID_MODE_KEY = 'uiGridMode';
+  const DRAG_LOCK_KEY = 'dragLockEnabled';
   const ACCOUNT_USER_KEY = 'accountUser';
   const ACCOUNT_DATA_KEY = 'accountState';
   const HISTORY_LIMIT = 40;
@@ -1825,10 +1995,21 @@ body.dark .gear-btn{
 
   // Створення DOM-плитки для кожного шаблону з подіями та стилями.
   /* Створює DOM-елемент плитки для одного шаблону. */
+  function getTemplateTileBaseHeight(template){
+    const textLength = String(template.title || '').trim().length + String(template.text || '').trim().length;
+    const extraHeight = Math.min(240, Math.floor(textLength / 120) * 18);
+    return Math.max(140, 140 + extraHeight);
+  }
+
   function buildTile(t){
     const tile = document.createElement('div');
     tile.className = 'tile';
     tile.dataset.id = t.id;
+
+    if(gridDisplayMode === 'wide' || gridDisplayMode === 'text'){
+      const baseHeight = getTemplateTileBaseHeight(t);
+      tile.style.minHeight = `calc(${baseHeight}px * var(--zoom-scale))`;
+    }
 
     const content = document.createElement('div');
     content.className = 'contentArea';
@@ -1893,14 +2074,18 @@ body.dark .gear-btn{
     });
 
     tile.addEventListener('click', (ev)=>{
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      const list = filtered();
       if(!editMode){
+        const selectedText = window.getSelection ? window.getSelection().toString().trim() : '';
+        if(gridDisplayMode === 'text' && selectedText){
+          return;
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
         copyAndCount(t.id);
         return;
       }
+      ev.preventDefault();
+      ev.stopPropagation();
 
       const idx = list.findIndex(x=>x.id===t.id);
       if(ev.shiftKey && lastSelectedIndex !== null && lastSelectedIndex !== undefined){
@@ -1942,10 +2127,41 @@ body.dark .gear-btn{
     const viewportHeight = container.clientHeight;
     const tileSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--tile')) || 200;
     const gap = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 10;
-    const columns = Math.max(1, Math.floor(grid.clientWidth / (tileSize + gap)));
-    const rowHeight = tileSize + gap;
-    const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - 2);
-    const endRow = Math.min(Math.ceil((scrollTop + viewportHeight) / rowHeight) + 2, Math.ceil(listLength / columns));
+    const zoomScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom-scale')) || 1;
+    let tileWidth = tileSize;
+    if(gridDisplayMode === 'wide'){
+      tileWidth = Math.round(tileSize * 1.6);
+    }
+    let columns = Math.max(1, Math.floor(grid.clientWidth / (tileWidth + gap)));
+    if(gridDisplayMode === 'text'){
+      columns = 1;
+    }
+
+    if(columns === 1){
+      const children = Array.from(grid.children);
+      let top = 0;
+      let start = 0;
+      for(let i = 0; i < children.length; i++){
+        const height = children[i].clientHeight || Math.round(140 * zoomScale);
+        if(top + height + gap > scrollTop){
+          start = i;
+          break;
+        }
+        top += height + gap;
+      }
+      let end = start;
+      const visibleBottom = scrollTop + viewportHeight;
+      while(end < children.length && top < visibleBottom){
+        const height = children[end].clientHeight || Math.round(140 * zoomScale);
+        top += height + gap;
+        end++;
+      }
+      return [Math.max(0, start - 6), Math.min(listLength, end + 6)];
+    }
+
+    const rowHeight = Math.round((tileSize * (gridDisplayMode === 'wide' ? 1.2 : 1)) + gap);
+    const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - 4);
+    const endRow = Math.min(Math.ceil((scrollTop + viewportHeight) / rowHeight) + 4, Math.ceil(listLength / columns));
     const start = startRow * columns;
     const end = Math.min(listLength, endRow * columns);
     return [start, end];
@@ -1983,7 +2199,8 @@ body.dark .gear-btn{
       placeholder.dataset.index = index;
       placeholder.setAttribute('role','listitem');
       if(gridDisplayMode === 'wide' || gridDisplayMode === 'text'){
-        placeholder.style.minHeight = '120px';
+        const baseHeight = getTemplateTileBaseHeight(t);
+        placeholder.style.minHeight = `calc(${baseHeight}px * var(--zoom-scale))`;
       }
       if(!reducedMotion){
         placeholder.style.animationDelay = (index * 12) + 'ms';
@@ -2055,7 +2272,7 @@ body.dark .gear-btn{
   /* Повністю перерисовує категорії та плитки шаблонів. */
   function renderTemplates(templatesData){
     if (Array.isArray(templatesData)) {
-      window.templates = templatesData;
+      window.templates = templatesData.map(ensureShape);
     }
     renderTemplateGrid();
     renderCategories();
@@ -2063,10 +2280,36 @@ body.dark .gear-btn{
 
   // Ініціалізація сортування шаблонів через drag-and-drop.
   let sortableTemplates = null;
+  const storedDragLockValue = localStorage.getItem(DRAG_LOCK_KEY);
+  let dragEnabled = storedDragLockValue === null ? true : storedDragLockValue !== 'true';
+  function setDragEnabled(enabled){
+    dragEnabled = Boolean(enabled);
+    localStorage.setItem(DRAG_LOCK_KEY, dragEnabled ? 'false' : 'true');
+    const lockBtn = $('btnLock');
+    if(lockBtn){
+      lockBtn.classList.toggle('active', dragEnabled);
+      lockBtn.setAttribute('aria-pressed', dragEnabled ? 'true' : 'false');
+    }
+    if(dragEnabled){
+      if($('grid')) initSortableTemplates();
+    } else {
+      if(sortableTemplates){
+        try{ sortableTemplates.destroy(); }catch(e){}
+        sortableTemplates = null;
+      }
+    }
+  }
   /* Ініціалізує drag-and-drop сортування шаблонів. */
   function initSortableTemplates(){
     const grid = $('grid');
     if(!grid) return;
+    if(!dragEnabled){
+      if(sortableTemplates){
+        try{ sortableTemplates.destroy(); }catch(e){}
+        sortableTemplates = null;
+      }
+      return;
+    }
     if(sortableTemplates) {
       try{ sortableTemplates.destroy(); }catch(e){}
       sortableTemplates = null;
@@ -3096,6 +3339,15 @@ body.dark .gear-btn{
         updateLogo();
       });
     }
+    const btnLock = $('btnLock');
+    if(btnLock){
+      if(dragEnabled) btnLock.classList.add('active');
+      btnLock.setAttribute('aria-pressed', dragEnabled ? 'true' : 'false');
+      safeOn(btnLock, 'click', (e)=>{
+        createButtonRipple(btnLock, e);
+        setDragEnabled(!dragEnabled);
+      });
+    }
 
     const zoomRange = $('zoomRange');
     const zoomValue = $('zoomValue');
@@ -3406,9 +3658,7 @@ body.dark .gear-btn{
   window.templates = templates;
   window.renderTemplates = renderTemplates;
   window.importCsvLink = importCsvLinkDirect;
-
-  // ---------------------------
-  // Модуль гарячих клавіш (1–0 для копіювання)
+  window.ensureShape = ensureShape;
   // ---------------------------
   (function hotkeysModule(){
     let hotkeysEnabled = false;
@@ -3684,7 +3934,7 @@ async function loadTemplatesFromFirebase() {
       return null;
     }
 
-    window.templates = docData.templates || [];
+    window.templates = (docData.templates || []).map(window.ensureShape || ((item) => item));
     try {
       localStorage.setItem('templates', JSON.stringify(window.templates));
       localStorage.setItem('brainTemplates', JSON.stringify(window.templates));
