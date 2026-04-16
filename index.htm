@@ -3552,21 +3552,19 @@ async function initFirebase() {
     updateAuthUI(user);
 
     if (user) {
-      const hasLocalTemplates = Boolean(localStorage.getItem('brainTemplates'));
-      if (!hasLocalTemplates) {
-        const loadedData = await loadTemplatesFromFirebase();
-        if (loadedData && Array.isArray(loadedData)) {
-          console.log('[FB DEBUG]: loaded templates from Firestore', loadedData.length);
-          if (typeof window.renderTemplates === 'function') {
-            try {
-              window.renderTemplates(loadedData);
-            } catch (err) {
-              console.warn('[FB DEBUG]: renderTemplates(data) failed', err);
-            }
+      console.log('[FB DEBUG]: Logged in, triggering auto-load...');
+      const loadedData = await loadTemplatesFromFirebase();
+      if (loadedData && Array.isArray(loadedData)) {
+        console.log('[FB DEBUG]: loaded templates from Firestore', loadedData.length);
+        if (typeof window.renderTemplates === 'function') {
+          try {
+            window.renderTemplates();
+          } catch (err) {
+            console.warn('[FB DEBUG]: renderTemplates() failed', err);
           }
-          if (typeof window.applyCloudTemplates === 'function') {
-            window.applyCloudTemplates(loadedData);
-          }
+        }
+        if (typeof window.applyCloudTemplates === 'function') {
+          window.applyCloudTemplates(loadedData);
         }
       }
     }
@@ -3648,7 +3646,7 @@ async function saveToCloud(data) {
     throw new Error('saveToCloud expects an array');
   }
 
-  const ref = doc(db, 'users', user.uid, 'data', 'templates');
+  const ref = doc(db, 'users', user.uid);
   await setDoc(
     ref,
     {
@@ -3661,12 +3659,40 @@ async function saveToCloud(data) {
 }
 
 async function loadTemplatesFromFirebase() {
-  if (!currentUser) return null;
-  const ref = doc(db, 'users', currentUser.uid, 'data', 'templates');
-  const snapshot = await getDoc(ref);
-  if (!snapshot.exists()) return null;
-  const docData = snapshot.data();
-  return Array.isArray(docData?.templates) ? docData.templates : null;
+  const user = auth?.currentUser || currentUser;
+  if (!user) return null;
+
+  const ref = doc(db, 'users', user.uid);
+  try {
+    const snapshot = await getDoc(ref);
+    if (!snapshot.exists()) {
+      console.log('[FB DEBUG]: Firestore is empty for this user.');
+      return null;
+    }
+
+    const docData = snapshot.data();
+    console.log('[FB DEBUG]: loadTemplatesFromFirebase fetched data:', docData);
+
+    if (!docData || !Array.isArray(docData.templates)) {
+      console.log('[FB DEBUG]: Firestore is empty for this user.');
+      return null;
+    }
+
+    window.templates = docData.templates.map(ensureShape);
+    try {
+      localStorage.setItem('brainTemplates', JSON.stringify(window.templates));
+    } catch (err) {
+      console.warn('[FB DEBUG]: localStorage backup failed', err);
+    }
+
+    renderTemplates();
+    console.log('[FB DEBUG]: Loaded ' + window.templates.length + ' templates from Firestore');
+    return window.templates;
+  } catch (error) {
+    console.error('[FB DEBUG]: loadTemplatesFromFirebase error:', error);
+    alert('Firestore load error: ' + (error.code || error.message || error));
+    return null;
+  }
 }
 
 function syncButtonHandler() {
