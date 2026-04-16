@@ -3499,9 +3499,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.9.0/firebas
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithRedirect,
   signInWithPopup,
-  getRedirectResult,
   signOut,
   onAuthStateChanged,
   setPersistence,
@@ -3529,6 +3527,8 @@ let auth;
 let db;
 let currentUser = null;
 
+console.log('[FB DEBUG]: App started on ' + window.location.hostname);
+
 async function initFirebase() {
   if (location.hostname === 'localhost' && location.port === '8000') {
     console.log('[FB DEBUG]: Running on localhost:8000');
@@ -3545,18 +3545,6 @@ async function initFirebase() {
   auth = getAuth(app);
   db = getFirestore(app);
 
-  try {
-    console.log('[FB DEBUG]: Checking redirect result...');
-    const result = await getRedirectResult(auth);
-    if (result && result.user) {
-      console.log('[FB DEBUG]: Redirect success!', result.user.displayName || result.user.email);
-    }
-  } catch (error) {
-    console.error('[FB DEBUG]: Redirect error:', error.message);
-  }
-
-  console.log('[FB DEBUG]: User object after redirect:', auth.currentUser);
-
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     window.currentUser = user;
@@ -3564,18 +3552,21 @@ async function initFirebase() {
     updateAuthUI(user);
 
     if (user) {
-      const loadedData = await loadTemplatesFromFirebase();
-      if (loadedData && Array.isArray(loadedData)) {
-        console.log('[FB DEBUG]: loaded templates from Firestore', loadedData.length);
-        if (typeof window.renderTemplates === 'function') {
-          try {
-            window.renderTemplates(loadedData);
-          } catch (err) {
-            console.warn('[FB DEBUG]: renderTemplates(data) failed', err);
+      const hasLocalTemplates = Boolean(localStorage.getItem('brainTemplates'));
+      if (!hasLocalTemplates) {
+        const loadedData = await loadTemplatesFromFirebase();
+        if (loadedData && Array.isArray(loadedData)) {
+          console.log('[FB DEBUG]: loaded templates from Firestore', loadedData.length);
+          if (typeof window.renderTemplates === 'function') {
+            try {
+              window.renderTemplates(loadedData);
+            } catch (err) {
+              console.warn('[FB DEBUG]: renderTemplates(data) failed', err);
+            }
           }
-        }
-        if (typeof window.applyCloudTemplates === 'function') {
-          window.applyCloudTemplates(loadedData);
+          if (typeof window.applyCloudTemplates === 'function') {
+            window.applyCloudTemplates(loadedData);
+          }
         }
       }
     }
@@ -3622,18 +3613,14 @@ async function loginWithGoogle() {
     console.error('[FB DEBUG]: Persistence set error:', error.code, error.message);
   }
 
-  if (window.location.hostname === 'localhost') {
-    console.log('[FB DEBUG]: Starting Google popup login on localhost');
-    try {
-      return await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error('[FB DEBUG] Login Error:', error.code, error.message);
-      throw error;
-    }
+  console.log('[FB DEBUG]: Starting Google popup login');
+  try {
+    return await signInWithPopup(auth, provider);
+  } catch (error) {
+    console.error('[FB DEBUG] Login Error:', error.code, error.message);
+    alert('Auth Error: ' + error.code);
+    throw error;
   }
-
-  console.log('[FB DEBUG]: Starting Google redirect login');
-  return signInWithRedirect(auth, provider);
 }
 
 async function logout() {
@@ -3645,20 +3632,16 @@ async function logout() {
 
 async function saveToCloud(data) {
   if (!auth) {
-    initFirebase();
+    await initFirebase();
   }
 
   if (!auth?.currentUser) {
-    console.error('[FB DEBUG]: Save failed - No User!');
-    alert('Сначала залогинься!');
-    return;
+    return alert('Please login first!');
   }
 
   const user = auth.currentUser;
   if (!user) {
-    console.error('[FB DEBUG]: Save failed - No User!');
-    alert('Сначала залогинься!');
-    return;
+    return alert('Please login first!');
   }
 
   if (!Array.isArray(data)) {
@@ -3674,7 +3657,7 @@ async function saveToCloud(data) {
     },
     { merge: true }
   );
-  console.log('[FB DEBUG]: templates saved', data.length);
+  console.log('[FB DEBUG]: Firestore save successful', ref.id);
 }
 
 async function loadTemplatesFromFirebase() {
