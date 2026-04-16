@@ -1333,7 +1333,7 @@ window.gapiLoaded = function(){
   const ACCOUNT_DATA_KEY = 'accountState';
   const HISTORY_LIMIT = 40;
   const GOOGLE_CLIENT_ID = '961679059140-87ppac3jfatdtvreeq40tt8v3uddvuag.apps.googleusercontent.com';
-  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
   const DRIVE_FILE_NAME = 'config.json';
   const LEGACY_DRIVE_FILE_NAME = 'SnapReplyAccountState.json';
   const DRIVE_FILE_ID_KEY = 'accountDriveFileId';
@@ -1437,23 +1437,9 @@ window.gapiLoaded = function(){
     driveTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: DRIVE_SCOPE,
-      ux_mode: 'popup',
-      callback: (resp) => {
-        if(resp.error){
-          console.warn('Drive token error', resp);
-          if(pendingTokenReject) pendingTokenReject(new Error(resp.error));
-          pendingTokenReject = null;
-          pendingTokenResolve = null;
-          return;
-        }
-        googleAccessToken = resp.access_token;
-        setGapiAccessToken(googleAccessToken);
-        if(pendingTokenResolve){
-          pendingTokenResolve(resp.access_token);
-          pendingTokenResolve = null;
-          pendingTokenReject = null;
-        }
-      }
+      ux_mode: 'redirect',
+      redirect_uri: 'https://maximgutsulyak-design.github.io/SnapReply/',
+      callback: '',
     });
   }
 
@@ -1829,7 +1815,8 @@ window.gapiLoaded = function(){
       renderTemplates();
       toast('Дані акаунта завантажено з хмари');
     } else {
-      saveAccountState('Google sign-in');
+      // saveAccountState('Google sign-in');
+      // В режиме redirect не сохраняем автоматически, чтобы избежать двойных авторизаций.
       toast('Успішно увійшли через Google');
     }
   }
@@ -1859,7 +1846,8 @@ window.gapiLoaded = function(){
   function persist(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(templates));
     localStorage.setItem(CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder));
-    if(accountUser){ saveAccountState('persist'); }
+    // if(accountUser){ saveAccountState('persist'); }
+    // Автоматическое сохранение состояния аккаунта отключено.
   }
 
   /* Відображення тимчасового повідомлення в правому верхньому куті. */
