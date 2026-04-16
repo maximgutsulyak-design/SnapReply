@@ -928,6 +928,7 @@ body.dark .gear-btn{
             <div class="panel-title">Google</div>
             <div id="accountName" class="small">Не увійшли</div>
           </div>
+          <div id="googleButtonContainer" class="google-button-container"></div>
           <div class="account-actions">
             <button id="btnGoogleSignIn" class="btn primary">Увійти через Google</button>
             <button id="btnCloudSync" class="btn secondary" style="display:none">Синхронізувати зараз</button>
@@ -1309,6 +1310,7 @@ body.dark .gear-btn{
   let accountData = JSON.parse(localStorage.getItem(ACCOUNT_DATA_KEY) || 'null');
   let driveTokenClient = null;
   let googleAccessToken = null;
+  let googleRenderButtonInitialized = false;
 
   let historyStack = [];
 
@@ -1568,16 +1570,19 @@ body.dark .gear-btn{
     const signInBtn = $('btnGoogleSignIn');
     const signOutBtn = $('btnGoogleSignOut');
     const syncBtn = $('btnCloudSync');
+    const googleButtonContainer = $('googleButtonContainer');
     if(accountUser){
       if(accountName) accountName.textContent = `${accountUser.name || accountUser.email} (Google)`;
       if(signInBtn) signInBtn.style.display = 'none';
       if(signOutBtn) signOutBtn.style.display = 'inline-flex';
       if(syncBtn) syncBtn.style.display = 'inline-flex';
+      if(googleButtonContainer) googleButtonContainer.style.display = 'none';
     } else {
       if(accountName) accountName.textContent = 'Не увійшли';
-      if(signInBtn) signInBtn.style.display = 'inline-flex';
+      if(signInBtn) signInBtn.style.display = googleRenderButtonInitialized ? 'none' : 'inline-flex';
       if(signOutBtn) signOutBtn.style.display = 'none';
       if(syncBtn) syncBtn.style.display = 'none';
+      if(googleButtonContainer) googleButtonContainer.style.display = 'block';
     }
   }
 
@@ -1614,6 +1619,17 @@ body.dark .gear-btn{
       auto_select: false,
       cancel_on_tap_outside: true
     });
+    const googleButtonContainer = $('googleButtonContainer');
+    if(googleButtonContainer){
+      google.accounts.id.renderButton(googleButtonContainer, {
+        theme: 'outline',
+        size: 'large',
+        width: 240,
+        type: 'standard'
+      });
+      googleRenderButtonInitialized = true;
+      if($('btnGoogleSignIn')) $('btnGoogleSignIn').style.display = 'none';
+    }
     if(!accountUser){
       google.accounts.id.prompt();
     }
