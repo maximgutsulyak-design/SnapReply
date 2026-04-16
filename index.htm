@@ -817,45 +817,8 @@ body.dark .gear-btn{
 .account-actions .btn{min-width:140px}
 </style>
 <script>
-window.gapiLoaded = function(){
-  if(!window.gapi || !gapi.load){
-    console.warn('gapiLoaded called but gapi is unavailable');
-    return;
-  }
-  gapi.load('client', {
-    callback: async () => {
-      try{
-        await gapi.client.init({
-          discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
-        });
-        await gapi.client.load('drive', 'v3');
-        window.gapiClientReady = true;
-        console.log('Drive API загружен');
-      }catch(err){
-        console.warn('Drive API init failed', err);
-      }
-    },
-    onerror: () => console.warn('GAPI load failed'),
-    timeout: 5000,
-    ontimeout: () => console.warn('GAPI load timeout')
-  });
-};
-
-window.addEventListener('load', () => {
-  const params = new URLSearchParams(window.location.hash.substring(1));
-  const accessToken = params.get('access_token');
-
-  if (accessToken) {
-    console.log('Токен успешно получен после редиректа!');
-    if(window.gapi && gapi.client){
-      gapi.client.setToken({ access_token: accessToken });
-    }
-    window.history.replaceState(null, null, window.location.pathname);
-    if (typeof loadCloudAccountState === 'function') {
-      loadCloudAccountState();
-    }
-  }
-});
+// Firebase будет обрабатывать авторизацию и загрузку шаблонов.
+// Старый GAPI/Google Drive код отключен.
 </script>
 </head>
 <body>
@@ -972,13 +935,13 @@ window.addEventListener('load', () => {
         <div class="settings-row"><span>Обліковий запис</span></div>
         <div id="accountPanel" class="account-panel">
           <div class="account-status">
-            <div class="panel-title">Google</div>
+            <div class="panel-title">Firebase</div>
             <div id="accountName" class="small">Не увійшли</div>
+            <div id="firebaseUserName" class="small" style="display:none"></div>
           </div>
-          <div id="googleButtonContainer" class="google-button-container"></div>
           <div class="account-actions">
-            <button id="btnGoogleSignIn" class="btn primary">Увійти через Google</button>
-            <button id="btnCloudSync" class="btn secondary" style="display:none">Синхронізувати зараз</button>
+            <button id="auth_btn" class="btn secondary" onclick="window.login()">Увійти через Google</button>
+            <button id="sync_btn" class="btn secondary" onclick="window.syncButtonHandler()">Синхронізувати шаблони</button>
             <button id="btnGoogleSignOut" class="btn warning" style="display:none">Вийти</button>
           </div>
         </div>
@@ -1134,8 +1097,9 @@ window.addEventListener('load', () => {
 
 <!-- Підключення бібліотек: читання XLSX, CSV та підтримка сортування списків -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script>
+<!-- Старі Google Auth / Drive SDK зараз не використовуються -->
+<!-- <script src="https://accounts.google.com/gsi/client" async defer></script> -->
+<!-- <script src="https://apis.google.com/js/api.js" async defer onload="gapiLoaded()"></script> -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
@@ -1348,43 +1312,15 @@ window.addEventListener('load', () => {
   const ACCOUNT_USER_KEY = 'accountUser';
   const ACCOUNT_DATA_KEY = 'accountState';
   const HISTORY_LIMIT = 40;
-  const GOOGLE_CLIENT_ID = '961679059140-87ppac3jfatdtvreeq40tt8v3uddvuag.apps.googleusercontent.com';
-  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-  const DRIVE_FILE_NAME = 'config.json';
-  const LEGACY_DRIVE_FILE_NAME = 'SnapReplyAccountState.json';
-  const DRIVE_FILE_ID_KEY = 'accountDriveFileId';
   let gridDisplayMode = localStorage.getItem(GRID_MODE_KEY) || 'cards';
   let motionModePreference = localStorage.getItem(MOTION_MODE_KEY) || 'auto';
   let accountUser = JSON.parse(localStorage.getItem(ACCOUNT_USER_KEY) || 'null');
   let accountData = JSON.parse(localStorage.getItem(ACCOUNT_DATA_KEY) || 'null');
-  let driveTokenClient = null;
-  let googleAccessToken = null;
-  let googleRenderButtonInitialized = false;
   let siteContext = getAppSiteContext();
 
   window.SITE_CONTEXT = siteContext;
   console.log('Site context detected:', siteContext);
   let historyStack = [];
-
-  function getDriveFileStorageKey(){
-    if(!accountUser || !accountUser.id) return null;
-    return `${DRIVE_FILE_ID_KEY}:${accountUser.id}`;
-  }
-
-  function getStoredDriveFileId(){
-    const key = getDriveFileStorageKey();
-    return key ? localStorage.getItem(key) : null;
-  }
-
-  function setStoredDriveFileId(id){
-    const key = getDriveFileStorageKey();
-    if(key) localStorage.setItem(key, id);
-  }
-
-  function clearStoredDriveFileId(){
-    const key = getDriveFileStorageKey();
-    if(key) localStorage.removeItem(key);
-  }
 
   function getAppSiteContext(){
     const origin = window.location.origin.toLowerCase();
@@ -1401,249 +1337,7 @@ window.addEventListener('load', () => {
     return 'unknown';
   }
 
-  window.gapiClientReady = window.gapiClientReady || false;
-
-  async function loadGapiClient(){
-    if(!window.gapi) return false;
-    if(window.gapiClientReady) return true;
-    return new Promise((resolve) => {
-      gapi.load('client', {
-        callback: async () => {
-          try{
-            await gapi.client.init({
-              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
-            });
-            await gapi.client.load('drive', 'v3');
-            window.gapiClientReady = true;
-            resolve(true);
-          }catch(err){
-            console.warn('GAPI client init failed', err);
-            resolve(false);
-          }
-        },
-        onerror: () => {
-          console.warn('GAPI load failed');
-          resolve(false);
-        },
-        timeout: 5000,
-        ontimeout: () => {
-          console.warn('GAPI load timeout');
-          resolve(false);
-        }
-      });
-    });
-  }
-
-  function setGapiAccessToken(token){
-    if(window.gapi && gapi.client && token){
-      gapi.client.setToken({access_token: token});
-    }
-  }
-
-  async function ensureGapiDriveClient(token){
-    const ok = await loadGapiClient();
-    if(!ok) return false;
-    if(token) setGapiAccessToken(token);
-    return true;
-  }
-
-  function initDriveTokenClient(){
-    if(driveTokenClient) return;
-    if(!window.google || !google.accounts || !google.accounts.oauth2) return;
-    const currentOrigin = window.location.origin + window.location.pathname;
-    driveTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: DRIVE_SCOPE,
-      ux_mode: 'redirect',
-      redirect_uri: currentOrigin,
-      prompt: 'select_account'
-    });
-    console.log('Google Drive Client инициализирован в режиме редиректа');
-  }
-
-  let pendingTokenResolve = null;
-  let pendingTokenReject = null;
-
-  function requestDriveAccessToken(forceConsent = false){
-    return new Promise((resolve, reject) => {
-      initDriveTokenClient();
-      if(!driveTokenClient) return reject(new Error('Drive OAuth client unavailable'));
-      pendingTokenResolve = resolve;
-      pendingTokenReject = reject;
-      driveTokenClient.requestAccessToken({prompt: forceConsent ? 'consent' : 'none'});
-    });
-  }
-
-  async function ensureDriveToken(force = false){
-    if(googleAccessToken) return googleAccessToken;
-    try{
-      return await requestDriveAccessToken(false);
-    }catch(err){
-      if(force) throw err;
-      return await requestDriveAccessToken(true);
-    }
-  }
-
-  async function findDriveFileId(forceToken = false){
-    const token = await ensureDriveToken(forceToken).catch(()=>null);
-    if(!token) return null;
-    const gapiReady = await ensureGapiDriveClient(token);
-    const storedId = getStoredDriveFileId();
-    if(storedId){
-      try{
-        if(gapiReady){
-          const verify = await gapi.client.drive.files.get({fileId: storedId, fields: 'id,name'});
-          if(verify && verify.result && verify.result.id) return storedId;
-        } else {
-          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${storedId}?fields=id,name`, {headers:{Authorization:`Bearer ${token}`}});
-          if(res.ok) return storedId;
-        }
-      }catch(err){
-        clearStoredDriveFileId();
-      }
-    }
-    const namesToCheck = [DRIVE_FILE_NAME];
-    if(DRIVE_FILE_NAME !== LEGACY_DRIVE_FILE_NAME) namesToCheck.push(LEGACY_DRIVE_FILE_NAME);
-    for(const name of namesToCheck){
-      const query = `name='${name}' and 'appDataFolder' in parents and trashed=false`;
-      if(gapiReady){
-        try{
-          const list = await gapi.client.drive.files.list({q: query, spaces:'appDataFolder', fields:'files(id,name)'});
-          const files = list?.result?.files || [];
-          if(files[0]){
-            setStoredDriveFileId(files[0].id);
-            return files[0].id;
-          }
-        }catch(err){
-          console.warn('GAPI list query failed', err);
-        }
-      } else {
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&spaces=appDataFolder&fields=files(id,name)`, {headers:{Authorization:`Bearer ${token}`}});
-        if(!res.ok) continue;
-        const data = await res.json();
-        if(data.files && data.files[0]){
-          setStoredDriveFileId(data.files[0].id);
-          return data.files[0].id;
-        }
-      }
-    }
-    return null;
-  }
-
-  async function loadCloudAccountState(interactive = false){
-    if(!accountUser) return null;
-    try{
-      const fileId = await findDriveFileId(interactive);
-      if(!fileId) return null;
-      const token = await ensureDriveToken(false);
-      if(!token) return null;
-      const gapiReady = await ensureGapiDriveClient(token);
-      if(gapiReady){
-        const response = await gapi.client.request({
-          path: `/drive/v3/files/${fileId}`,
-          method: 'GET',
-          params: {alt: 'media'}
-        });
-        const body = response?.body || response?.result || null;
-        if(body){
-          return typeof body === 'string' ? JSON.parse(body) : body;
-        }
-        return null;
-      }
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {headers:{Authorization:`Bearer ${token}`}});
-      if(!res.ok) return null;
-      return await res.json();
-    }catch(err){
-      console.warn('Cloud load failed', err);
-      return null;
-    }
-  }
-
-  async function saveCloudAccountState(forceToken = false){
-    if(!accountUser) return false;
-    try{
-      const token = await ensureDriveToken(forceToken);
-      if(!token){
-        console.warn('Cloud save aborted: no Drive token available');
-        return false;
-      }
-      const payload = JSON.stringify(getAccountStatePayload());
-      const gapiReady = await ensureGapiDriveClient(token);
-      let fileId = await findDriveFileId(true);
-      if(gapiReady && fileId){
-        const updateRes = await gapi.client.request({
-          path: `/upload/drive/v3/files/${fileId}`,
-          method: 'PATCH',
-          params: {uploadType: 'media'},
-          body: payload
-        });
-        if(updateRes && (updateRes.status === 200 || updateRes.status === 204 || updateRes.result)){
-          return true;
-        }
-        console.warn('Cloud save patch failed', updateRes);
-      }
-      if(fileId){
-        const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-          method:'PATCH',
-          headers:{Authorization:`Bearer ${token}`, 'Content-Type':'application/json'},
-          body: payload
-        });
-        if(res.ok) return true;
-        console.warn('Cloud save patch failed', await res.text());
-      }
-      const metadata = {name: DRIVE_FILE_NAME, parents:['appDataFolder']};
-      const boundary = '-------314159265358979323846';
-      const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${payload}\r\n--${boundary}--`;
-      let createRes;
-      if(gapiReady){
-        createRes = await gapi.client.request({
-          path: '/upload/drive/v3/files',
-          method: 'POST',
-          params: {uploadType: 'multipart', fields: 'id'},
-          headers: {'Content-Type': `multipart/related; boundary=${boundary}`},
-          body
-        });
-        if(createRes && createRes.result && createRes.result.id){
-          fileId = createRes.result.id;
-          setStoredDriveFileId(fileId);
-          return true;
-        }
-        console.warn('Cloud save create via GAPI failed', createRes);
-      }
-      createRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id`, {
-        method:'POST',
-        headers:{Authorization:`Bearer ${token}`, 'Content-Type':`multipart/related; boundary=${boundary}`},
-        body
-      });
-      if(!createRes.ok){
-        console.warn('Cloud save create failed', await createRes.text());
-        return false;
-      }
-      const created = await createRes.json();
-      if(created.id){
-        setStoredDriveFileId(created.id);
-        return true;
-      }
-      return false;
-    }catch(err){
-      console.warn('Cloud save failed', err);
-      return false;
-    }
-  }
-
-  async function syncCloudNow(){
-    if(!accountUser){
-      toast('Увійдіть через Google, щоб синхронізувати дані');
-      return;
-    }
-    saveAccountState('manual sync');
-    const synced = await saveCloudAccountState(true);
-    if(synced){
-      toast('Дані успішно синхронізовано з хмарою');
-    } else {
-      toast('Не вдалося синхронізувати з хмарою');
-    }
-  }
+  // Old Google Drive / GAPI logic removed. Firebase handles sync via Firestore.
 
   function getAccountStateKey(){
     if(!accountUser || !accountUser.id) return ACCOUNT_DATA_KEY;
@@ -1747,22 +1441,16 @@ window.addEventListener('load', () => {
 
   function updateAccountUI(){
     const accountName = $('accountName');
-    const signInBtn = $('btnGoogleSignIn');
     const signOutBtn = $('btnGoogleSignOut');
-    const syncBtn = $('btnCloudSync');
-    const googleButtonContainer = $('googleButtonContainer');
+    const syncBtn = $('sync_btn');
     if(accountUser){
       if(accountName) accountName.textContent = `${accountUser.name || accountUser.email} (Google)`;
-      if(signInBtn) signInBtn.style.display = 'none';
       if(signOutBtn) signOutBtn.style.display = 'inline-flex';
       if(syncBtn) syncBtn.style.display = 'inline-flex';
-      if(googleButtonContainer) googleButtonContainer.style.display = 'none';
     } else {
       if(accountName) accountName.textContent = 'Не увійшли';
-      if(signInBtn) signInBtn.style.display = googleRenderButtonInitialized ? 'none' : 'inline-flex';
       if(signOutBtn) signOutBtn.style.display = 'none';
-      if(syncBtn) syncBtn.style.display = 'none';
-      if(googleButtonContainer) googleButtonContainer.style.display = 'block';
+      if(syncBtn) syncBtn.style.display = 'inline-flex';
     }
   }
 
@@ -1779,74 +1467,22 @@ window.addEventListener('load', () => {
   }
 
   function initGoogleAccount(){
-    updateAccountUI();
-    if(!window.google || !window.google.accounts || !window.google.accounts.id){
-      const script = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
-      if(script && !script.dataset.gsiInitAttached){
-        script.addEventListener('load', initGoogleAccount);
-        script.dataset.gsiInitAttached = '1';
-      }
-      return;
-    }
-    initDriveTokenClient();
-    if(!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID_HERE'){
-      console.warn('Google client ID is not configured. Set GOOGLE_CLIENT_ID in index.htm');
-      return;
-    }
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleCredential,
-      auto_select: false,
-      cancel_on_tap_outside: true
-    });
-    const googleButtonContainer = $('googleButtonContainer');
-    if(googleButtonContainer){
-      google.accounts.id.renderButton(googleButtonContainer, {
-        theme: 'outline',
-        size: 'large',
-        width: 240,
-        type: 'standard'
-      });
-      googleRenderButtonInitialized = true;
-      if($('btnGoogleSignIn')) $('btnGoogleSignIn').style.display = 'none';
-    }
+    console.warn('[FB DEBUG]: initGoogleAccount disabled; use window.login() for Firebase auth');
   }
 
-  async function handleGoogleCredential(response){
-    if(!response?.credential) return;
-    const payload = parseJwt(response.credential);
-    if(!payload || !payload.sub) return;
-    accountUser = {
-      id: payload.sub,
-      email: payload.email,
-      name: payload.name || payload.email,
-      picture: payload.picture || ''
-    };
-    localStorage.setItem(ACCOUNT_USER_KEY, JSON.stringify(accountUser));
-    updateAccountUI();
-
-    const cloudData = await loadCloudAccountState(true);
-    if(cloudData){
-      accountData = cloudData;
-      restoreAccountState();
-      renderCategories();
-      renderTemplates();
-      toast('Дані акаунта завантажено з хмари');
-    } else {
-      // saveAccountState('Google sign-in');
-      // В режиме redirect не сохраняем автоматически, чтобы избежать двойных авторизаций.
-      toast('Успішно увійшли через Google');
+  function handleAuthClick(){
+    if (window.login) {
+      return window.login();
     }
+    console.warn('[FB DEBUG]: login function is unavailable');
   }
 
   function signOutGoogle(){
-    if(window.google && window.google.accounts && window.google.accounts.id){
-      google.accounts.id.disableAutoSelect();
+    if(window.logout){
+      window.logout().catch(()=>{});
     }
     accountUser = null;
     accountData = null;
-    googleAccessToken = null;
-    driveTokenClient = null;
     localStorage.removeItem(ACCOUNT_USER_KEY);
     localStorage.removeItem(ACCOUNT_DATA_KEY);
     updateAccountUI();
@@ -2417,7 +2053,10 @@ window.addEventListener('load', () => {
   }
 
   /* Повністю перерисовує категорії та плитки шаблонів. */
-  function renderTemplates(){
+  function renderTemplates(templatesData){
+    if (Array.isArray(templatesData)) {
+      window.templates = templatesData;
+    }
     renderTemplateGrid();
     renderCategories();
   }
@@ -3491,26 +3130,7 @@ window.addEventListener('load', () => {
       });
     }
 
-    const btnGoogleSignIn = $('btnGoogleSignIn');
     const btnGoogleSignOut = $('btnGoogleSignOut');
-    const btnCloudSync = $('btnCloudSync');
-    if(btnGoogleSignIn) safeOn(btnGoogleSignIn, 'click', (e)=>{
-      e.preventDefault();
-      if(window.google && window.google.accounts && window.google.accounts.id){
-        google.accounts.id.prompt();
-        return;
-      }
-      const gsiScript = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
-      if(gsiScript){
-        initGoogleAccount();
-        if(window.google && window.google.accounts && window.google.accounts.id){
-          google.accounts.id.prompt();
-          return;
-        }
-      }
-      alert('Google sign-in недоступний або не завантажено. Спробуйте оновити сторінку або перевірити підключення до інтернету.');
-    });
-    if(btnCloudSync) safeOn(btnCloudSync, 'click', ()=> syncCloudNow());
     if(btnGoogleSignOut) safeOn(btnGoogleSignOut, 'click', ()=> signOutGoogle());
     if(btnUndo) safeOn(btnUndo, 'click', ()=> undoAction());
     if(btnRedo) safeOn(btnRedo, 'click', ()=> redoAction());
@@ -3660,7 +3280,6 @@ window.addEventListener('load', () => {
       accountData = accountData || loadStoredAccountData();
       if(accountData){ restoreAccountState(); }
     }
-    initGoogleAccount();
     renderCategories(); renderTemplates();
     updateCategoryTabs();
     updateSearchControls();
@@ -3688,6 +3307,17 @@ window.addEventListener('load', () => {
 
     if(categorySearch && categorySearch.value){ filterCategoryButtons(categorySearch.value); }
   }
+
+  function applyCloudTemplates(data){
+    if(!Array.isArray(data)) return;
+    templates = data.map(ensureShape);
+    categoryOrder = Array.from(new Set(templates.map(t => t.category)));
+    if(!categoryOrder.length) categoryOrder = ['Усі'];
+    renderCategories();
+    renderTemplates();
+  }
+
+  window.applyCloudTemplates = applyCloudTemplates;
 
   function applyMotionMode(mode){
     if(mode === 'auto'){
@@ -3863,5 +3493,219 @@ window.addEventListener('load', () => {
   })();
 
 })();</script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithRedirect,
+  signInWithPopup,
+  getRedirectResult,
+  signOut,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
+} from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js';
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyDQ6l0lujXwa179I9ZT4vLlBEtrpRtJZVw',
+  authDomain: 'snapreply-eee27.firebaseapp.com',
+  projectId: 'snapreply-eee27',
+  storageBucket: 'snapreply-eee27.firebasestorage.app',
+  messagingSenderId: '1082841587829',
+  appId: '1:1082841587829:web:dd6e1b74c1cdb84d16d83c',
+  measurementId: 'G-4LP81LMPQF'
+};
+
+let auth;
+let db;
+let currentUser = null;
+
+async function initFirebase() {
+  if (location.hostname === 'localhost' && location.port === '8000') {
+    console.log('[FB DEBUG]: Running on localhost:8000');
+  }
+
+  let app;
+  try {
+    app = initializeApp(firebaseConfig);
+  } catch (error) {
+    console.error('[FB DEBUG]: Firebase initialization error:', error);
+    throw error;
+  }
+
+  auth = getAuth(app);
+  db = getFirestore(app);
+
+  try {
+    console.log('[FB DEBUG]: Checking redirect result...');
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      console.log('[FB DEBUG]: Redirect success!', result.user.displayName || result.user.email);
+    }
+  } catch (error) {
+    console.error('[FB DEBUG]: Redirect error:', error.message);
+  }
+
+  console.log('[FB DEBUG]: User object after redirect:', auth.currentUser);
+
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    window.currentUser = user;
+    console.log('[FB DEBUG]: auth state changed', user ? user.uid : null);
+    updateAuthUI(user);
+
+    if (user) {
+      const loadedData = await loadTemplatesFromFirebase();
+      if (loadedData && Array.isArray(loadedData)) {
+        console.log('[FB DEBUG]: loaded templates from Firestore', loadedData.length);
+        if (typeof window.renderTemplates === 'function') {
+          try {
+            window.renderTemplates(loadedData);
+          } catch (err) {
+            console.warn('[FB DEBUG]: renderTemplates(data) failed', err);
+          }
+        }
+        if (typeof window.applyCloudTemplates === 'function') {
+          window.applyCloudTemplates(loadedData);
+        }
+      }
+    }
+  });
+}
+
+function updateAuthUI(user) {
+  const loginBtn = document.getElementById('auth_btn');
+  const logoutBtn = document.getElementById('btnGoogleSignOut');
+  const userName = document.getElementById('firebaseUserName');
+  const accountName = document.getElementById('accountName');
+
+  if (loginBtn) loginBtn.style.display = user ? 'none' : 'inline-flex';
+  if (logoutBtn) logoutBtn.style.display = user ? 'inline-flex' : 'none';
+  if (accountName) {
+    accountName.textContent = user ? `Вхід: ${user.email || user.displayName}` : 'Не увійшли';
+    accountName.title = user ? user.email || user.displayName : '';
+  }
+
+  if (userName) {
+    if (user) {
+      userName.style.display = 'block';
+      userName.textContent = `${user.displayName || user.email}`;
+      userName.title = user.email || user.displayName;
+    } else {
+      userName.style.display = 'none';
+      userName.textContent = '';
+      userName.title = '';
+    }
+  }
+}
+
+async function loginWithGoogle() {
+  if (!auth) {
+    await initFirebase();
+  }
+
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+  } catch (error) {
+    console.error('[FB DEBUG]: Persistence set error:', error.code, error.message);
+  }
+
+  if (window.location.hostname === 'localhost') {
+    console.log('[FB DEBUG]: Starting Google popup login on localhost');
+    try {
+      return await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error('[FB DEBUG] Login Error:', error.code, error.message);
+      throw error;
+    }
+  }
+
+  console.log('[FB DEBUG]: Starting Google redirect login');
+  return signInWithRedirect(auth, provider);
+}
+
+async function logout() {
+  if (!auth) return;
+  console.log('[FB DEBUG]: signing out');
+  await signOut(auth);
+  window.currentUser = null;
+}
+
+async function saveToCloud(data) {
+  if (!auth) {
+    initFirebase();
+  }
+
+  if (!auth?.currentUser) {
+    console.error('[FB DEBUG]: Save failed - No User!');
+    alert('Сначала залогинься!');
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    console.error('[FB DEBUG]: Save failed - No User!');
+    alert('Сначала залогинься!');
+    return;
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error('saveToCloud expects an array');
+  }
+
+  const ref = doc(db, 'users', user.uid, 'data', 'templates');
+  await setDoc(
+    ref,
+    {
+      templates: data,
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+  console.log('[FB DEBUG]: templates saved', data.length);
+}
+
+async function loadTemplatesFromFirebase() {
+  if (!currentUser) return null;
+  const ref = doc(db, 'users', currentUser.uid, 'data', 'templates');
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) return null;
+  const docData = snapshot.data();
+  return Array.isArray(docData?.templates) ? docData.templates : null;
+}
+
+function syncButtonHandler() {
+  if (!currentUser) {
+    console.log('[FB DEBUG]: no authenticated user, redirecting to login');
+    return loginWithGoogle();
+  }
+  console.log('[FB DEBUG]: saving templates via sync button');
+  return saveToCloud(window.templates || []).catch((err) => {
+    console.warn('[FB DEBUG]: saveToCloud failed', err);
+  });
+}
+
+window.login = loginWithGoogle;
+window.loginWithGoogle = loginWithGoogle;
+window.logout = logout;
+window.saveToCloud = saveToCloud;
+window.loadTemplatesFromFirebase = loadTemplatesFromFirebase;
+window.syncButtonHandler = syncButtonHandler;
+window.handleAuthClick = loginWithGoogle;
+
+initFirebase().catch((err) => console.error('[FB DEBUG]: initFirebase error', err));
+</script>
 </body>
 </html>
