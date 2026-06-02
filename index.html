@@ -1,0 +1,311 @@
+﻿<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SnapReply</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-logo">
+        <img id="logo" src="light_theme.svg" class="logo" draggable="false" ondragstart="return false;" oncontextmenu="return false;" alt="SnapReply logo" />
+      </div>
+      <div class="sidebar-head">
+        <div class="search-wrap" id="categorySearchWrap" role="search">
+          <button id="btnCatSearch" type="button" class="search-btn" aria-label="Пошук категорій" aria-expanded="false" aria-controls="categoryList">
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+          </button>
+          <input id="categorySearch" type="search" autocomplete="off" class="search-input category-search" placeholder="Пошук категорій..." aria-label="Пошук категорій" aria-controls="categoryList" />
+          <button id="clearCategorySearch" class="btn close-btn" aria-label="Очистити пошук категорій" type="button" style="position:absolute;right:0;top:0;display:none"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
+        </div>
+        <div class="sidebar-actions">
+          <button id="btnCatAll" class="btn tab-btn active" title="Усі" type="button">
+            <svg class="tab-icon" viewBox="0 0 100 100" aria-hidden="true">
+              <rect x="8" y="8" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="15" y="15" width="24" height="24" rx="3" fill="#fff" />
+              <rect x="54" y="8" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="61" y="15" width="24" height="24" rx="3" fill="#fff" />
+              <rect x="8" y="54" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="15" y="61" width="24" height="24" rx="3" fill="#fff" />
+              <rect x="54" y="54" width="38" height="38" rx="6" fill="currentColor" />
+              <rect x="61" y="61" width="24" height="24" rx="3" fill="#fff" />
+            </svg>
+          </button>
+          <button id="btnCatFav" class="btn tab-btn" title="Обране" type="button">
+            <svg class="tab-icon" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,2 63,38 100,38 69,59 82,95 50,75 18,95 31,59 0,38 37,38" fill="currentColor" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="categoryList" class="category-list"></div>
+  </aside>
+
+  <main class="main" id="mainArea">
+    <div class="topbar">
+      <div class="search-wrap" id="mainSearchWrap" role="search">
+        <button id="btnSearchToggle" type="button" class="search-btn" aria-label="Пошук шаблонів" aria-expanded="false" aria-controls="grid">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+        </button>
+        <input id="search" type="search" autocomplete="off" class="search search-input" placeholder="Пошук шаблонів..." aria-label="Пошук шаблонів" aria-controls="grid" />
+      <button id="clearSearch" class="btn close-btn" aria-label="Очистити пошук" type="button"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
+      </div>
+      
+      <button id="btnSettings" type="button" class="btn gear-btn" aria-label="Налаштування">
+        <svg viewBox="0 0 24 24" class="gear-icon" aria-hidden="true"><path d="M12 8.2 A3.8 3.8 0 1 1 12 15.8 A3.8 3.8 0 1 1 12 8.2 M12 2 L13.2 2 L14 4.2 L16.2 5 L18.3 3.9 L20.1 5.7 L19 7.8 L19.8 10 L22 10.8 L22 13.2 L19.8 14 L19 16.2 L20.1 18.3 L18.3 20.1 L16.2 19 L14 19.8 L13.2 22 L10.8 22 L10 19.8 L7.8 19 L5.7 20.1 L3.9 18.3 L5 16.2 L4.2 14 L2 13.2 L2 10.8 L4.2 10 L5 7.8 L3.9 5.7 L5.7 3.9 L7.8 5 L10 4.2 Z" fill="currentColor" fill-rule="evenodd"/></svg>
+      </button>
+      <div style="display:flex;gap:8px;margin-left:8px;flex-wrap:wrap;align-items:center">
+        <button id="btnAdd" class="btn primary" type="button">Додати</button>
+        <button id="btnEditMode" class="btn primary" type="button">Редагування</button>
+        <button id="btnSelectAll" class="btn primary" type="button" style="display:none">Виділити все</button>
+        <button id="btnDeleteSelected" class="btn warning" type="button" style="display:none">Видалити</button>
+        <button id="btnEditSelected" class="btn primary" type="button" style="display:none">Редагувати</button>
+        <button id="btnCancelSelection" class="btn warning" type="button" style="display:none">Зняти виділення</button>
+        <button id="btnUndo" class="btn history undo" title="Скасувати дію" type="button">Скасувати</button>
+        <button id="btnRedo" class="btn history redo" title="Повернути дію" type="button">Повернути</button>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="btnLock" class="btn lock-toggle" aria-label="Блокування drag/drop" aria-pressed="false" type="button">
+          <svg viewBox="0 -2 24 26" class="lock-icon" aria-hidden="true">
+            <g class="icon-root">
+              <g class="lock-state lock-closed">
+                <path d="M2 16C2 13.17 2 11.75 2.88 10.88C3.75 10 5.17 10 8 10H16C18.83 10 20.24 10 21.12 10.88C22 11.75 22 13.17 22 16C22 18.83 22 20.24 21.12 21.12C20.24 22 18.83 22 16 22H8C5.17 22 3.75 22 2.88 21.12C2 20.24 2 18.83 2 16Z" />
+                <circle cx="12" cy="16" r="2" />
+                <path class="shackle" d="M6 10V8C6 4.7 8.7 2 12 2C15.3 2 18 4.7 18 8V10" stroke-linecap="round" />
+              </g>
+              <g class="lock-state lock-open">
+                <path d="M2 16C2 13.17 2 11.75 2.88 10.88C3.75 10 5.17 10 8 10H16C18.83 10 20.24 10 21.12 10.88C22 11.75 22 13.17 22 16C22 18.83 22 20.24 21.12 21.12C20.24 22 18.83 22 16 22H8C5.17 22 3.75 22 2.88 21.12C2 20.24 2 18.83 2 16Z" />
+                <circle cx="12" cy="16" r="2" />
+                <path class="shackle" d="M6 10V8C6 4.7 8.7 2 12 2C15.3 2 18 4.7 18 8V10" stroke-linecap="round" />
+              </g>
+            </g>
+          </svg>
+          <span class="lock-state-dot"></span>
+        </button>
+        <button id="btnTheme" class="btn theme-toggle active" aria-label="Тема" type="button">
+          <svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <g class="icon-root">
+              <g class="theme-state theme-moon">
+                <path d="M21 12.8 A9 9 0 1 1 11.2 3 A7 7 0 0 0 21 12.8" />
+              </g>
+              <g class="theme-state theme-sun">
+                <circle cx="12" cy="12" r="4" />
+                <line x1="12" y1="2" x2="12" y2="5" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="5" y2="12" />
+                <line x1="19" y1="12" x2="22" y2="12" />
+                <line x1="4.5" y1="4.5" x2="6.5" y2="6.5" />
+                <line x1="17.5" y1="17.5" x2="19.5" y2="19.5" />
+                <line x1="4.5" y1="19.5" x2="6.5" y2="17.5" />
+                <line x1="17.5" y1="6.5" x2="19.5" y2="4.5" />
+              </g>
+            </g>
+          </svg>
+        </button>
+        <button id="btnImportExport" class="btn primary" type="button">Імпорт / Експорт</button>
+        <button id="btnHotkeys" class="btn hotkey-btn" title="Гарячі клавіші 1–0" type="button">Hotkeys<span class="dot"></span></button>
+      </div>
+    </div>
+
+    <div class="grid-wrapper" style="padding:12px;overflow:auto;height:calc(100% - 64px);overscroll-behavior:contain;">
+      <div id="undoContainer"></div>
+      <div id="grid" class="grid" role="list" aria-label="Сітка шаблонів" aria-live="polite" aria-relevant="all"></div>
+      <div id="gridStatus" class="sr-only" aria-live="polite"></div>
+    </div>
+  </main>
+</div>
+<div id="hotkeysHUD" aria-hidden="true"><span class="keys">1–0</span> — копіювати видимі шаблони</div>
+<div id="tileContextMenu" class="context-menu" aria-hidden="true"></div>
+
+<div id="modalSettings" class="modalWrap" aria-hidden="true">
+  <div class="modal" role="dialog">
+    <div class="modal-header">
+      <div>
+        <h2>Налаштування</h2>
+      </div>
+      <button id="btnCloseSettings" class="btn close-btn" aria-label="Закрити" type="button"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
+    </div>
+    <div class="settings-panel">
+      <div class="settings-group">
+        <div class="settings-row"><span>Обліковий запис</span></div>
+        <div id="accountPanel" class="account-panel">
+          <div class="account-status">
+            <div class="panel-title">Firebase</div>
+            <div id="accountName" class="small">Не увійшли</div>
+            <div id="firebaseUserName" class="small" style="display:none"></div>
+            <div id="firebaseStatus" class="small" style="margin-top:8px;color:var(--muted)"></div>
+          </div>
+          <div class="account-actions">
+            <button id="auth_btn" class="btn secondary" type="button">Увійти через Google</button>
+            <button id="sync_btn" class="btn secondary" type="button">Синхронізувати шаблони</button>
+            <button id="btnGoogleSignOut" class="btn warning" style="display:none" type="button">Вийти</button>
+          </div>
+        </div>
+        <div class="hint">Підключіться до облікового запису, щоб зберігати шаблони, іконки та порядок категорій.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Масштаб плиток</span><span id="zoomValue">100%</span></div>
+        <input id="zoomRange" class="settings-slider" type="range" min="0.7" max="1.6" step="0.05" value="1" />
+        <div class="hint">Регулюйте розмір карток для зручнішого перегляду.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Режим анімацій</span></div>
+        <select id="animationMode" class="input">
+          <option value="auto">Авто</option>
+          <option value="fast">Швидкий</option>
+          <option value="normal">Нормальний</option>
+          <option value="low">Економний</option>
+          <option value="reduced">Мінімальні</option>
+          <option value="none">Отключено</option>
+        </select>
+        <div class="hint">Виберіть режим анімацій або залиште автопідбір.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Відображення сітки</span></div>
+        <select id="gridMode" class="input">
+          <option value="cards">Квадрати</option>
+          <option value="wide">Прямокутні</option>
+          <option value="text">Текстові</option>
+        </select>
+        <div class="hint">Виберіть комфортний режим перегляду шаблонів.</div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-row"><span>Фон</span></div>
+        <label class="file-input-label" for="bgFile" style="display:flex;margin-bottom:8px">Вибрати зображення</label>
+        <input id="bgFile" type="file" accept="image/*" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <button id="bgApply" class="btn primary" type="button">Застосувати</button>
+          <button id="bgClear" class="btn warning" type="button">Очистити</button>
+        </div>
+        <div class="hint">Завантажте зображення, PNG з прозорістю збережеться прозорим.</div>
+        <div id="bgStatus" class="small" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalEditor" class="modalWrap" aria-hidden="true">
+  <div class="modal" role="dialog">
+    <div class="modal-header">
+      <div>
+        <h3>Редактор шаблону</h3>
+        <p class="modal-note">Відредагуйте назву, категорію, теги та текст шаблону.</p>
+      </div>
+      <button id="btnCloseEditor" class="btn close-btn" aria-label="Закрити" type="button"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <input id="eTitle" class="input" placeholder="Назва" />
+        <input id="eCategory" class="input" placeholder="Категорія" />
+      </div>
+      <div class="field-row field-row--compact">
+        <input id="eTags" class="input" placeholder="Теги" />
+        <input id="eEmoji" class="input" placeholder="Емоджі" />
+        <label class="field-checkbox"><input id="eFavorite" type="checkbox" /> <span>Обране</span></label>
+      </div>
+      <div class="field-row">
+        <textarea id="eText" rows="8" class="input" placeholder="Текст шаблону"></textarea>
+        <div id="charCounter" class="small" style="margin-top:4px;color:var(--muted)">0 символів</div>
+      </div>
+      <div class="field-row">
+        <label class="file-input-label" for="eImage" style="display:flex">Вибрати файл</label>
+        <input id="eImage" type="file" accept="image/*" />
+      </div>
+      <div class="field-row">
+        <input id="eImageUrl" class="input" placeholder="URL іконки або шлях (наприклад icon/name.png)" />
+      </div>
+      <div class="hint">Якщо не завантажуєш файл, можна вказати URL або відносний шлях до іконки зі сховища.</div>
+    </div>
+    <div class="modal-actions">
+      <button id="eSave" class="btn primary" type="button">Зберегти</button>
+      <button id="eDelete" class="btn warning" type="button">Видалити</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalConfirmDelete" class="modalWrap" aria-hidden="true">
+  <div class="modal" role="dialog">
+    <div class="modal-header">
+      <h3>Підтвердження видалення</h3>
+    </div>
+    <div class="modal-body">
+      <p id="confirmDeleteMsg"></p>
+    </div>
+    <div class="modal-actions">
+      <button id="btnConfirmDeleteYes" class="btn warning" type="button">Видалити</button>
+      <button id="btnConfirmDeleteNo" class="btn primary" type="button">Скасувати</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalImport" class="modalWrap" aria-hidden="true">
+  <div class="modal" role="dialog">
+    <div class="modal-header">
+      <h3>Імпорт / Експорт</h3>
+      <button id="btnImportClose" class="btn close-btn" aria-label="Закрити" type="button"><svg class="close-icon" viewBox="0 0 100 100" aria-hidden="true"><path d="M20,20 L80,80" /><path d="M80,20 L20,80" /></svg></button>
+    </div>
+    <p class="modal-note">Імпортуйте з JSON/XLSX або CSV, експортуйте в JSON.</p>
+    <div class="import-grid">
+      <div class="import-panel">
+        <div class="panel-title">Файл (JSON/XLSX)</div>
+        <label class="file-input-label" for="importFile" style="display:flex;margin-bottom:8px">Вибрати файл</label>
+        <input id="importFile" type="file" accept=".json,.xlsx,.xls" />
+        <button id="btnLoadFilePreview" class="btn primary full" type="button">Переглянути</button>
+      </div>
+      <div class="import-panel">
+        <div class="panel-title">CSV</div>
+        <input id="gsCsvLink" class="input" placeholder="CSV link" />
+        <div class="import-actions">
+          <button id="btnLoadCsvPreview" class="btn primary" type="button">Переглянути</button>
+          <button id="btnAutoImport" class="btn primary" type="button">Автоімпорт</button>
+        </div>
+      </div>
+    </div>
+    <div class="export-panel">
+      <div>
+        <div class="panel-title">Експорт</div>
+        <div class="hint">Завантажте весь стан: шаблони, налаштування, метадані та дані акаунту.</div>
+      </div>
+      <button id="btnExportJson" class="btn primary" type="button">Експорт JSON</button>
+    </div>
+    <div id="previewArea" style="display:none;margin-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="small">Показано перші <span id="previewCount">0</span> рядків</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small">Кількість рядків прев’ю</label>
+          <select id="previewRows" class="input" style="width:80px">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <div class="small">Оберіть мапінг колонок (при необхідності змініть вручну)</div>
+        <div style="margin-top:6px" id="mappingControls"></div>
+      </div>
+      <div style="margin-top:8px;overflow:auto;max-height:320px">
+        <table class="previewTable" id="previewTable"></table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="btnConfirmImport" class="btn primary" type="button">Імпортувати підтверджені рядки</button>
+        <button id="btnCancelPreview" class="btn warning" type="button">Скасувати</button>
+      </div>
+    </div>
+    <div id="importStatus" class="small" style="margin-top:8px;color:var(--muted)"></div>
+  </div>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<script type="module" src="js/app.js?v=2"></script>
+</body>
+</html>
