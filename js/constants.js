@@ -1,0 +1,15 @@
+export const STORAGE_KEY = 'brainTemplates';
+export const CATEGORY_ORDER_KEY = 'categoryOrder';
+export const BG_KEY = 'mainBackground';
+export const THEME_KEY = 'themePreference';
+export const UI_TILE_KEY = 'uiTileWidth';
+export const MOTION_MODE_KEY = 'animationModePreference';
+export const GRID_MODE_KEY = 'uiGridMode';
+export const DRAG_LOCK_KEY = 'dragLockEnabled';
+export const ACCOUNT_USER_KEY = 'accountUser';
+export const ACCOUNT_DATA_KEY = 'accountState';
+export const HISTORY_LIMIT = 40;
+export const UNDO_TIMEOUT_MS = 9000;
+export const DEFAULT_ICON_FOLDER = 'icon';
+export const DEFAULT_CSV_IMPORT_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSK7Pw9yTYj7PzsyFaeaUP8PmfegdxYR900xhC0MKgeZ9DQ-zCimnNMFarxdsBKXSBp9lm3LOfM8MP7/pub?output=csv';
+export const HOTKEYS_KEY = 'templatesHotkeysEnabled';
